@@ -897,7 +897,7 @@ function renderLibrary(){
         <div class="bookAuthor">${esc(b.author||'')}</div>
         <div class="bookMetaRow">
           <span class="bookMeta"><strong>${bq.length}</strong> alıntı</span>
-          ${lastPage?`<span class="bookMeta">Son okunan sayfa: <strong>${esc(lastPage)}</strong></span>`:''}
+          ${(b.status||'Okuyorum')==='Okuyorum'&&lastPage?`<span class="bookMeta">Son okunan sayfa: <strong>${esc(lastPage)}</strong></span>`:''}
           <span class="bookMeta">${esc(b.status||'Okuyorum')}</span>
         </div>
         <div class="bookLast">${latest?'Son alıntı · '+relativeBookTime(latest):'Henüz alıntı eklenmedi'}</div>
