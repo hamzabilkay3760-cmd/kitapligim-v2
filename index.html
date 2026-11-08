@@ -176,14 +176,16 @@ nav{background:rgba(255,252,247,.97)!important;border-top:1px solid #e0d3bf!impo
 @media(prefers-reduced-motion:reduce){button,.btn{transition:none!important}}
 
 
-/* Static reading-corner illustration; existing typography and app behavior unchanged */
-.libraryHeroStatic{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:126px;margin-bottom:13px;overflow:hidden}
-.libraryHeroStatic .libraryHeroText{flex:1;min-width:0;position:relative;z-index:1}
-.libraryHeroStatic .title{margin-bottom:9px!important}
-.libraryGoldStroke{display:block;width:min(190px,78%);height:15px;margin:0 0 5px 4px}
-.readingCornerStill{width:45%;max-width:260px;min-width:138px;align-self:stretch;display:flex;align-items:center;justify-content:flex-end;pointer-events:none;overflow:hidden}
-.readingCornerStill img{display:block;width:100%;height:100%;max-height:175px;object-fit:cover;object-position:center;mask-image:linear-gradient(to right,transparent 0%,black 23%);-webkit-mask-image:linear-gradient(to right,transparent 0%,black 23%)}
-@media(max-width:420px){.libraryHeroStatic{min-height:115px}.readingCornerStill{width:43%;min-width:125px}.libraryHeroStatic .title{font-size:37px!important}.libraryGoldStroke{width:140px}}
+/* Refined static reading hero: no animation, no changes to app logic */
+.libraryHeroStatic{position:relative;display:flex;align-items:center;min-height:170px;margin:-19px -15px 17px;padding:22px 19px;overflow:hidden;isolation:isolate;background:#f7efe4}
+.libraryHeroStatic .libraryHeroText{position:relative;z-index:2;flex:1;min-width:0;pointer-events:none}
+.libraryHeroStatic .eyebrow{letter-spacing:.14em}
+.libraryHeroStatic .title{margin-bottom:12px!important;position:relative;z-index:2;white-space:nowrap;font-size:clamp(35px,7.5vw,60px)!important;letter-spacing:-.035em}
+.libraryGoldStroke{display:block;width:min(210px,65%);height:16px;margin:0 0 0 4px}
+.readingCornerStill{position:absolute;inset:0 0 0 auto;width:67%;max-width:none;min-width:0;height:100%;display:block;overflow:hidden;pointer-events:none;z-index:1}
+.readingCornerStill img{position:absolute;right:0;top:0;display:block;width:100%;height:100%;max-height:none;object-fit:cover;object-position:72% 51%;filter:brightness(.86) saturate(.9);-webkit-mask-image:linear-gradient(to right,transparent 0%,transparent 28%,rgba(0,0,0,.65) 54%,black 75%);mask-image:linear-gradient(to right,transparent 0%,transparent 28%,rgba(0,0,0,.65) 54%,black 75%)}
+@media(min-width:700px){.libraryHeroStatic{min-height:210px;padding:30px 26px;margin-left:-24px;margin-right:-24px}.readingCornerStill{width:57%}}
+@media(max-width:420px){.libraryHeroStatic{min-height:158px;padding:21px 15px}.libraryHeroStatic .title{font-size:37px!important}.libraryGoldStroke{width:150px}.readingCornerStill{width:70%}}
 </style>
 </head>
 <body>
