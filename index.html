@@ -733,23 +733,47 @@ function setupReadingStreak(){
  panel.appendChild(card);
  card.onclick=e=>{
    e.stopPropagation();
-   if(!readingBooks.length)return alert('Önce “Okuyorum” durumunda bir kitap eklemelisin.');
-   let book=readingBooks.find(b=>done&&todayData.bookId===b.id)||readingBooks[0];
-   if(readingBooks.length>1){
-     const names=readingBooks.map((b,i)=>(i+1)+'. '+b.title).join('\n');
-     const currentIndex=Math.max(0,readingBooks.findIndex(b=>b.id===book.id))+1;
-     const pick=prompt('Bugün hangi kitabı okudun?\n'+names,currentIndex);
-     if(pick===null)return;
-     const ix=Math.floor(Number(pick))-1;
-     if(!Number.isFinite(ix)||ix<0||ix>=readingBooks.length)return alert('Geçerli bir kitap numarası girin.');
-     book=readingBooks[ix];
-   }
-   const raw=prompt('Bugün kaç sayfa okudun?',done&&pages?String(pages):'');
-   if(raw===null)return;
-   const pageCount=Math.floor(Number(raw));
-   if(!Number.isFinite(pageCount)||pageCount<1)return alert('Lütfen 1 veya daha büyük bir sayfa sayısı girin.');
-   data.days[today]={bookId:book.id,pages:pageCount,at:Date.now()};
-   saveReadingStreakData(data);setupReadingStreak();
+   if(!readingBooks.length){alert('Önce “Okuyorum” durumunda bir kitap eklemelisin.');return;}
+   document.getElementById('readingStreakOverlay')?.remove();
+   const overlay=document.createElement('div');
+   overlay.id='readingStreakOverlay';
+   overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(16,27,44,.52);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+   const dialog=document.createElement('section');
+   dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Günlük okuma girişi');
+   dialog.style.cssText='width:min(100%,420px);max-height:85vh;overflow-y:auto;background:#fffdf8;border-radius:24px;padding:25px 21px;box-shadow:0 25px 70px rgba(10,22,39,.22);color:#182640';
+   const flame='<span aria-hidden="true" style="font-size:38px">🔥</span>';
+   dialog.innerHTML='<div style="display:flex;justify-content:space-between;align-items:start;gap:12px"><div>'+flame+'<div class="eyebrow" style="margin-top:8px">OKUMA SERİSİ</div><h2 style="font-family:Georgia,serif;font-size:29px;line-height:1.15;margin:9px 0"> '+(done?'Bugünkü ateşin yanıyor!':'Seri ateşini yak!')+'</h2></div><button type="button" id="streakClose" aria-label="Kapat" style="border:1px solid #e5dac6;background:#fff;border-radius:12px;padding:8px 12px;color:#182640">✕</button></div><p style="font-size:14px;line-height:1.6;color:#746e63;margin:8px 0 18px">'+(done?'Bugünkü okuma kaydını istersen güncelleyebilirsin.':'Bugün birkaç sayfa bile okusan okuma alışkanlığına güzel bir adım atarsın.')+'</p><div id="streakWelcome"><button type="button" id="streakBegin" style="width:100%;border-radius:13px;padding:14px;background:#182640;color:white;font-weight:700">'+(done?'Bugünkü kaydımı düzenle':'Bugün okuma girişi yap')+'</button></div><div id="streakForm" style="display:none"><label style="display:block;font-weight:700;font-size:13px;margin-bottom:8px">Hangi kitabı okudun?</label><div id="streakBookChoices" style="display:grid;gap:7px;max-height:190px;overflow:auto"></div><label for="streakPages" style="display:block;font-weight:700;font-size:13px;margin:17px 0 8px">Kaç sayfa okudun?</label><input id="streakPages" type="number" inputmode="numeric" min="1" step="1" placeholder="Örneğin 12" style="width:100%;padding:13px;border-radius:12px;border:1px solid #d9ccb5;background:white;font-size:17px"><div id="streakError" role="alert" style="color:#a13e31;font-size:12px;margin-top:7px"></div><button id="streakSave" type="button" style="width:100%;margin-top:12px;border-radius:13px;padding:14px;background:#182640;color:white;font-weight:700">Okumamı kaydet</button></div>';
+   overlay.appendChild(dialog);document.body.appendChild(overlay);
+   const close=()=>overlay.remove();
+   overlay.onclick=ev=>{if(ev.target===overlay)close();};
+   dialog.querySelector('#streakClose').onclick=close;
+   let selectedId=String(done&&todayData.bookId||readingBooks[0].id);
+   const choices=dialog.querySelector('#streakBookChoices');
+   const paint=()=>{
+     choices.innerHTML='';
+     readingBooks.forEach(b=>{
+       const selected=String(b.id)===selectedId;
+       const btn=document.createElement('button');btn.type='button';btn.textContent=b.title;
+       btn.style.cssText='text-align:left;padding:11px 12px;border-radius:11px;font-size:13px;border:1px solid '+(selected?'#b88c33':'#e4dccc')+';background:'+(selected?'#f8efdb':'white')+';color:#182640;font-weight:'+(selected?'700':'500');
+       btn.onclick=()=>{selectedId=String(b.id);paint();};choices.appendChild(btn);
+     });
+   };
+   paint();
+   dialog.querySelector('#streakBegin').onclick=()=>{
+     dialog.querySelector('#streakWelcome').style.display='none';
+     dialog.querySelector('#streakForm').style.display='block';
+     if(done&&pages)dialog.querySelector('#streakPages').value=String(pages);
+   };
+   dialog.querySelector('#streakSave').onclick=()=>{
+     const input=dialog.querySelector('#streakPages'),n=Number(input.value);
+     if(!Number.isSafeInteger(n)||n<1){dialog.querySelector('#streakError').textContent='Lütfen en az 1 sayfa gir.';return;}
+     const book=readingBooks.find(b=>String(b.id)===selectedId);
+     if(!book)return;
+     const latest=getReadingStreakData();
+     latest.days[today]={bookId:book.id,pages:n,at:Date.now()};
+     saveReadingStreakData(latest);
+     close();setupReadingStreak();
+   };
  };
 }
 function renderLibrary(){
