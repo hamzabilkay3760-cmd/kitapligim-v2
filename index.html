@@ -688,11 +688,40 @@ function setupAnnualReadingGoal(){
  panel.appendChild(card);
  card.onclick=e=>{
    e.stopPropagation();
-   const raw=prompt(year+' için kitap hedefin kaç?',target||'');
-   if(raw===null)return;
-   const val=Math.floor(Number(raw));
-   if(!Number.isFinite(val)||val<1)return alert('Lütfen 1 veya daha büyük bir sayı girin.');
-   setReadingGoal(year,val);setupAnnualReadingGoal();
+   document.getElementById('readingGoalOverlay')?.remove();
+   const overlay=document.createElement('div');
+   overlay.id='readingGoalOverlay';
+   overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(12,25,42,.56);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box';
+   const dialog=document.createElement('section');
+   dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.setAttribute('aria-label','Yıllık kitap hedefi');
+   dialog.style.cssText='box-sizing:border-box;width:min(100%,430px);max-height:88vh;overflow-y:auto;background:#fffcf7;border:1px solid #d8c39d;border-radius:24px;padding:24px 22px 22px;color:#102238;box-shadow:0 22px 65px rgba(10,20,34,.25)';
+   dialog.innerHTML='<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px"><div><div style="font:700 10px system-ui,sans-serif;letter-spacing:.13em;color:#a47b38">KİŞİSEL OKUMA HEDEFİ</div><h2 style="font:500 29px/1.2 Georgia,serif;letter-spacing:-.04em;margin:9px 0 8px">'+year+' yılında kaç kitap?</h2></div><button id="goalClose" type="button" aria-label="Kapat" style="border:1px solid #e2d6c2;background:#fffaf3;border-radius:11px;padding:7px 11px;color:#102238;font-size:18px">×</button></div><p style="color:#777168;font:13px/1.6 system-ui,sans-serif;margin:0 0 18px">Kendine ulaşılabilir bir hedef belirle. İstediğin zaman değiştirebilirsin.</p><div id="goalPresets" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px"></div><div style="margin-top:18px;padding:13px;background:#f7f0e5;border-radius:15px"><label for="goalValue" style="display:block;font:650 12px system-ui,sans-serif;margin-bottom:8px">Kitap sayısı</label><div style="display:flex;gap:10px;align-items:center"><button type="button" id="goalMinus" aria-label="Bir azalt" style="border:1px solid #d8c8ae;border-radius:10px;background:#fffdf8;padding:8px 14px;font-size:21px">−</button><input id="goalValue" type="number" inputmode="numeric" min="1" max="9999" step="1" style="width:100%;min-width:0;text-align:center;border:1px solid #d8c8ae;border-radius:10px;padding:10px;font:700 20px system-ui,sans-serif;color:#102238;background:white"><button type="button" id="goalPlus" aria-label="Bir artır" style="border:1px solid #d8c8ae;border-radius:10px;background:#fffdf8;padding:8px 14px;font-size:21px">+</button></div></div><p id="goalError" role="alert" style="min-height:15px;color:#a13e31;font-size:12px;margin:7px 0"></p><button type="button" id="goalSave" style="width:100%;background:#102238;color:#fffaf0;border:0;border-radius:13px;padding:14px;font:700 14px system-ui,sans-serif">Hedefimi kaydet</button>';
+   overlay.appendChild(dialog);document.body.appendChild(overlay);
+   const input=dialog.querySelector('#goalValue');
+   const presets=dialog.querySelector('#goalPresets');
+   const choices=[6,12,24,36,52,100];
+   const render=()=>{
+     presets.innerHTML='';
+     choices.forEach(n=>{
+       const btn=document.createElement('button');btn.type='button';btn.textContent=n+' kitap';
+       const selected=Number(input.value)===n;
+       btn.style.cssText='border:1px solid '+(selected?'#b68b43':'#e0d2bc')+';background:'+(selected?'#102238':'#fffaf2')+';color:'+(selected?'#fff':'#102238')+';border-radius:12px;padding:12px 4px;font:650 13px system-ui,sans-serif';
+       btn.onclick=()=>{input.value=String(n);render();};
+       presets.appendChild(btn);
+     });
+   };
+   input.value=String(target||12);render();
+   input.addEventListener('input',render);
+   dialog.querySelector('#goalMinus').onclick=()=>{input.value=String(Math.max(1,(Number(input.value)||1)-1));render();};
+   dialog.querySelector('#goalPlus').onclick=()=>{input.value=String(Math.min(9999,(Number(input.value)||0)+1));render();};
+   const close=()=>overlay.remove();
+   dialog.querySelector('#goalClose').onclick=close;
+   overlay.onclick=ev=>{if(ev.target===overlay)close();};
+   dialog.querySelector('#goalSave').onclick=()=>{
+     const val=Number(input.value);
+     if(!Number.isSafeInteger(val)||val<1||val>9999){dialog.querySelector('#goalError').textContent='1 ile 9999 arasında tam sayı seç.';return;}
+     setReadingGoal(year,val);close();setupAnnualReadingGoal();
+   };
  };
 }
 
