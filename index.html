@@ -129,6 +129,52 @@
 #readingJournalSafe .between .eyebrow{color:#676f79!important}
 @media(max-width:420px){#dataView .card{border-radius:19px}#annualSummarySafe>div[style*="grid-template-columns"]>div,#readingJournalSafe>div[style*="grid-template-columns"]>div{padding:12px!important}}
 
+
+/* Kitapligim editorial design system — 2026-11-08. Visual-only overrides. */
+:root{--ivory:#f5efe5;--paper:#fffcf7;--navy:#102238;--gold:#bb8b37;--muted:#746d63;--line:#e5d8c3;--shadow:0 7px 22px rgba(26,31,38,.075)}
+body{background:linear-gradient(180deg,#f8f1e7 0%,#f3ecdf 100%);color:var(--navy)}
+header{background:#102238!important;color:#fff8ec!important;border-bottom:1px solid #b88b43!important;box-shadow:0 4px 20px rgba(16,34,56,.12);font-size:26px!important;letter-spacing:-.035em}
+main{max-width:760px}
+.title{font-weight:500!important;letter-spacing:-.045em;line-height:1.08;color:#102238}
+.eyebrow{font-family:system-ui,-apple-system,sans-serif;letter-spacing:.105em;font-size:10px;font-weight:750;color:#aa8138}
+.card{background:#fffcf7;border:1px solid #e8d9c2;box-shadow:0 7px 22px rgba(26,31,38,.055);border-radius:23px}
+button,.btn{transition:background .18s ease,box-shadow .18s ease,transform .16s ease}
+button:active,.btn:active{transform:scale(.985)}
+button:focus-visible,.btn:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #d6ac5c;outline-offset:2px}
+.btn.secondary{background:#fffaf2;border:1px solid #dfd1bb;box-shadow:0 2px 6px rgba(20,34,54,.045)}
+input,textarea,select{background:#fffdf9;border-color:#dccbb0}
+#filterBar .filterBtn{box-shadow:0 2px 7px rgba(18,34,53,.065);padding:12px 16px}
+#filterBar .activeFilter{background:#102238!important;color:#fff!important}
+.book{background:#fffcf8;border:1px solid #e9dcc7;box-shadow:0 6px 20px rgba(25,36,51,.05)}
+.book h3{font-weight:550;letter-spacing:-.035em}
+.bookMeta{background:#f7f1e7;border-color:#e7d9c5;font-weight:650}
+.book .cover,.bookDetailCover,.miniCover{box-shadow:0 8px 17px rgba(23,30,40,.15)}
+.bookActions .openMini{background:#102238!important}
+#readingStreakCard{background:linear-gradient(115deg,#102238,#1a3048)!important;color:#fff7e7!important;border:1px solid #bb8b43!important;box-shadow:0 9px 23px rgba(16,34,56,.16)!important;border-radius:18px!important}
+#readingStreakCard .eyebrow{color:#e4bf7c!important;letter-spacing:.07em!important}
+#readingStreakCard .muted{color:#ead7b5!important}
+#readingStreakCard .streakFlameOnly{filter:drop-shadow(0 2px 5px rgba(238,160,45,.18))}
+#annualSummarySafe,#readingJournalSafe,#monthlyReadingCalendar{background:#fffcf8!important;border:1px solid #e5d4b9!important;box-shadow:0 8px 24px rgba(21,33,47,.06)!important}
+#annualSummarySafe>.eyebrow,#readingJournalSafe>.eyebrow,#monthlyReadingCalendar>.eyebrow{color:#ad8239!important;font-size:11px!important;letter-spacing:.12em!important;text-transform:uppercase!important;font-weight:750!important}
+#annualSummarySafe>h2,#readingJournalSafe h2{font-family:Georgia,serif!important;color:#102238!important;letter-spacing:-.045em!important}
+#annualSummarySafe>div[style*="grid-template-columns"]>div,#readingJournalSafe>div[style*="grid-template-columns"]>div{background:linear-gradient(155deg,#fffaf1,#f6f0e6)!important;border:1px solid #e9dcc9;border-radius:16px!important;box-shadow:0 3px 10px rgba(25,35,48,.045)}
+#annualSummarySafe>div[style*="grid-template-columns"]>div .eyebrow,#readingJournalSafe>div[style*="grid-template-columns"]>div .eyebrow{font-size:10px!important;color:#8b7655!important;letter-spacing:.045em!important;text-transform:none!important;font-weight:650!important}
+#annualSummarySafe>div[style*="grid-template-columns"]>div div[style*="Georgia"],#readingJournalSafe>div[style*="grid-template-columns"]>div div[style*="Georgia"]{font-family:Georgia,serif!important;font-size:30px!important;font-weight:550!important;letter-spacing:-.03em}
+#annualSummarySafe>div[style*="border-radius:14px"][style*="background:#fbf7ee"],#readingJournalSafe>div[style*="border-radius:12px"][style*="background:#fbf7ee"]{background:#faf6ef!important;border:1px solid #ebdfcd!important;box-shadow:0 2px 9px rgba(30,35,40,.025)}
+#annualSummarySafe>div[style*="border-radius:14px"][style*="background:#fbf7ee"] .eyebrow{color:#a47b38!important;letter-spacing:.075em!important;font-weight:700!important}
+#annualSummarySafe>div[style*="border-radius:14px"][style*="background:#fbf7ee"] div[style*="Georgia"]{font-family:Georgia,serif!important;font-size:21px!important;font-weight:500!important}
+#annualSummarySafe span[style*="border-radius:999px"]{background:#fffdf9!important;border:1px solid #dec9a5!important}
+#monthlyReadingCalendar .readingCalendarDay{box-shadow:0 1px 3px rgba(18,31,48,.035)!important}
+.archiveBox,.archiveItem,.metaItem,.note{background:#faf5ed;border-color:#e8dcc9}
+.archiveBoxTitle,.bookDetailTitle,.miniTitle{letter-spacing:-.035em}
+nav{background:rgba(255,252,247,.97)!important;border-top:1px solid #e0d3bf!important;box-shadow:0 -5px 18px rgba(30,37,48,.035)}
+.navbtn{font-weight:600;color:#756f66}
+.navbtn.active{background:#102238!important;color:#fffaf0!important;border-radius:15px;font-weight:750}
+#readingStreakOverlay section{border:1px solid #dec9a6}
+#readingStreakOverlay #streakBegin,#readingStreakOverlay #streakSave{background:linear-gradient(110deg,#102238,#203c59)!important}
+@media(max-width:520px){header{font-size:24px!important}main{padding:19px 15px 110px}.title{font-size:39px!important}.card{border-radius:20px}.book{border-radius:18px}#annualSummarySafe>div[style*="grid-template-columns"]>div,#readingJournalSafe>div[style*="grid-template-columns"]>div{padding:11px!important}}
+@media(prefers-reduced-motion:reduce){button,.btn{transition:none!important}}
+
 </style>
 </head>
 <body>
