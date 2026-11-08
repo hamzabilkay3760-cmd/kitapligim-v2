@@ -547,15 +547,27 @@ function renderMonthlyReadingCalendarSafe(){
    if(next)next.onclick=e=>{e.stopPropagation();if(monthStart<currentMonth){readingCalendarCursor=new Date(year,month+1,1);readingCalendarSelectedDay='';renderMonthlyReadingCalendarSafe()}};
    if(yearPick)yearPick.onclick=e=>{
      e.stopPropagation();
-     const raw=prompt('Hangi yıla gitmek istiyorsun?',String(year));
-     if(raw===null)return;
-     const picked=Math.floor(Number(raw));
+     const existing=card.querySelector('#readingYearChooser');
+     if(existing){existing.remove();return;}
      const currentYear=today.getFullYear();
-     if(!Number.isFinite(picked)||picked<1900||picked>currentYear)return alert('1900 ile '+currentYear+' arasında geçerli bir yıl girin.');
-     const nextMonth=(picked===currentYear&&month>today.getMonth())?today.getMonth():month;
-     readingCalendarCursor=new Date(picked,nextMonth,1);
-     readingCalendarSelectedDay='';
-     renderMonthlyReadingCalendarSafe();
+     const chooser=document.createElement('div');
+     chooser.id='readingYearChooser';
+     chooser.setAttribute('role','dialog');
+     chooser.setAttribute('aria-label','Okuma takvimi yılı seç');
+     chooser.style.cssText='margin:14px 0 4px;padding:14px;background:#f8f5ee;border:1px solid #e8decb;border-radius:16px';
+     chooser.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px"><strong style="font-size:14px;color:#182640">Yıl seç</strong><button type="button" id="readingYearClose" aria-label="Kapat" style="background:#fff;border:1px solid #e4dac9;border-radius:9px;color:#182640;padding:6px 10px">✕</button></div><div id="readingYearGrid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;max-height:230px;overflow-y:auto;overscroll-behavior:contain"></div>';
+     const grid=chooser.querySelector('#readingYearGrid');
+     for(let y=currentYear;y>=1900;y--){
+       const b=document.createElement('button');
+       b.type='button';b.textContent=String(y);b.dataset.year=String(y);
+       b.style.cssText='padding:11px 2px;border-radius:10px;font-size:13px;font-weight:700;border:1px solid '+(y===year?'#182640':'#e9e1d4')+';background:'+(y===year?'#182640':'#fff')+';color:'+(y===year?'#fff':'#182640')+';box-shadow:none';
+       b.onclick=ev=>{ev.stopPropagation();const nextMonth=(y===currentYear&&month>today.getMonth())?today.getMonth():month;readingCalendarCursor=new Date(y,nextMonth,1);readingCalendarSelectedDay='';renderMonthlyReadingCalendarSafe();};
+       grid.appendChild(b);
+     }
+     const header=card.querySelector('.between');
+     if(header)header.insertAdjacentElement('afterend',chooser);
+     chooser.querySelector('#readingYearClose').onclick=ev=>{ev.stopPropagation();chooser.remove();};
+     grid.querySelector('[data-year="'+year+'"]')?.scrollIntoView({block:'nearest'});
    };
    if(readingCalendarSelectedDay&&readingCalendarSelectedDay.startsWith(year+'-'+String(month+1).padStart(2,'0')+'-'))renderDetail(readingCalendarSelectedDay);
  }catch(e){
