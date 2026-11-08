@@ -175,13 +175,22 @@ nav{background:rgba(255,252,247,.97)!important;border-top:1px solid #e0d3bf!impo
 @media(max-width:520px){header{font-size:24px!important}main{padding:19px 15px 110px}.title{font-size:39px!important}.card{border-radius:20px}.book{border-radius:18px}#annualSummarySafe>div[style*="grid-template-columns"]>div,#readingJournalSafe>div[style*="grid-template-columns"]>div{padding:11px!important}}
 @media(prefers-reduced-motion:reduce){button,.btn{transition:none!important}}
 
+
+/* Static reading-corner illustration; existing typography and app behavior unchanged */
+.libraryHeroStatic{display:flex;align-items:center;justify-content:space-between;gap:4px;min-height:126px;margin-bottom:13px;overflow:hidden}
+.libraryHeroStatic .libraryHeroText{flex:1;min-width:0;position:relative;z-index:1}
+.libraryHeroStatic .title{margin-bottom:9px!important}
+.libraryGoldStroke{display:block;width:min(190px,78%);height:15px;margin:0 0 5px 4px}
+.readingCornerStill{width:45%;max-width:260px;min-width:138px;align-self:stretch;display:flex;align-items:center;justify-content:flex-end;pointer-events:none;overflow:hidden}
+.readingCornerStill svg{display:block;width:100%;height:auto;max-height:175px;overflow:visible}
+@media(max-width:420px){.libraryHeroStatic{min-height:115px}.readingCornerStill{width:43%;min-width:125px}.libraryHeroStatic .title{font-size:37px!important}.libraryGoldStroke{width:140px}}
 </style>
 </head>
 <body>
 <header>▣ Kitaplığım</header>
 <main>
   <section id="libraryView">
-    <div class="eyebrow">Kişisel arşiv</div><h1 class="title">Kütüphanem</h1>
+    <div class="libraryHeroStatic"><div class="libraryHeroText"><div class="eyebrow">Kişisel arşiv</div><h1 class="title">Kütüphanem</h1><svg class="libraryGoldStroke" viewBox="0 0 200 16" aria-hidden="true"><path d="M3 3 Q44 20 92 9 T197 7" fill="none" stroke="#ad8239" stroke-width="3" stroke-linecap="round"/></svg></div><div class="readingCornerStill"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 170" role="img" aria-label="Sıcak ışıklı modern masa lambası, kitaplar ve kahve fincanı; sabit görsel"><defs><radialGradient id="cornerGlow"><stop stop-color="#f4cb78" stop-opacity=".57"/><stop offset=".55" stop-color="#e6b767" stop-opacity=".2"/><stop offset="1" stop-color="#f7f1e5" stop-opacity="0"/></radialGradient><linearGradient id="cornerFade"><stop stop-color="#f7f1e5" stop-opacity="0"/><stop offset=".55" stop-color="#755137" stop-opacity=".9"/><stop offset="1" stop-color="#3c322d"/></linearGradient><linearGradient id="lampGold" x2="1" y2="1"><stop stop-color="#f3d69a"/><stop offset=".5" stop-color="#b5843b"/><stop offset="1" stop-color="#775127"/></linearGradient></defs><rect width="260" height="170" fill="url(#cornerFade)" opacity=".6"/><ellipse cx="190" cy="73" rx="95" ry="84" fill="url(#cornerGlow)"/><g opacity=".58" stroke="#533c2d" stroke-width="4"><path d="M127 0v122M150 0v122M173 0v122M196 0v122M219 0v122M242 0v122"/></g><path d="M0 149H260" stroke="#9b7448" stroke-width="5"/><g><rect x="92" y="119" width="78" height="10" rx="2" fill="#6b4932" stroke="#b58c57"/><rect x="101" y="108" width="72" height="10" rx="2" fill="#a47b4b" stroke="#d5b47b"/><rect x="98" y="98" width="65" height="9" rx="2" fill="#4c5e5b" stroke="#b89a6b"/><rect x="113" y="89" width="64" height="8" rx="2" fill="#8a4c35" stroke="#d2a46b"/></g><g><path d="M59 115h44l-4 29H65z" fill="#fff3d9" stroke="#c9a676" stroke-width="2"/><path d="M102 119q21-4 16 12t-17 5" fill="none" stroke="#d6b58a" stroke-width="5"/><ellipse cx="81" cy="116" rx="22" ry="5" fill="#5a3928"/><ellipse cx="83" cy="145" rx="31" ry="5" fill="#c29a63" opacity=".7"/></g><g stroke="url(#lampGold)" stroke-width="5" fill="none" stroke-linecap="round"><path d="M226 139V40Q225 16 204 16H183"/></g><path d="M148 44Q160 18 181 18Q201 18 213 44Z" fill="#775129" stroke="#e7c47f" stroke-width="2"/><ellipse cx="181" cy="44" rx="33" ry="5" fill="#ffe1a2"/><ellipse cx="181" cy="51" rx="42" ry="23" fill="#ffdc91" opacity=".15"/><path d="M225 139h-22q-9 0-11 8h43q-1-8-10-8" fill="url(#lampGold)"/><path d="M15 154h239" stroke="#b98d54" stroke-width="2" opacity=".65"/></svg></div></div>
     <div class="between"><input id="searchInput" placeholder="Kitap veya yazar ara" style="max-width:420px"><button id="addBookBtn">+ Kitap ekle</button></div>
     <div id="filterBar" class="toolbar section-gap">
       <button class="btn secondary filterBtn activeFilter" data-filter="Tümü">Tümü</button>
