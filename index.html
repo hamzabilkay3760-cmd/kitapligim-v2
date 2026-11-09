@@ -394,10 +394,13 @@ function renderReadingJournalWeeklySafe(){
    const avg=pageDays?Math.round(totalPages/pageDays):0;
    const byBook={};
    weekEntries.forEach(x=>{
-     if(!x.bookId)return;
-     if(!byBook[x.bookId])byBook[x.bookId]={pages:0,days:0};
-     byBook[x.bookId].pages+=Number(x.pages)||0;
-     byBook[x.bookId].days++;
+     const breakdown=x.bookPages&&Object.keys(x.bookPages).length?x.bookPages:x.bookId?{[String(x.bookId)]:Number(x.pages)||0}:{};
+     Object.entries(breakdown).forEach(([id,pages])=>{
+       if(Number(pages)<=0)return;
+       if(!byBook[id])byBook[id]={pages:0,days:0};
+       byBook[id].pages+=Number(pages)||0;
+       byBook[id].days++;
+     });
    });
    const topId=Object.keys(byBook).sort((a,b)=>(byBook[b].pages-byBook[a].pages)||(byBook[b].days-byBook[a].days))[0]||'';
    const topBook=state.books.find(b=>String(b.id)===String(topId));
@@ -1575,17 +1578,18 @@ function setupBookReadingHistory(bookId){
  try{
    const days=getReadingStreakData().days||{};
    const rows=Object.entries(days)
-     .filter(([date,entry])=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&String(entry?.bookId||'')===String(bookId)&&Number(entry?.pages)>0)
+     .filter(([date,entry])=>/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number(entry?.bookPages&&Object.keys(entry.bookPages).length?entry.bookPages[String(bookId)]:(String(entry?.bookId||'')===String(bookId)?entry?.pages:0))>0)
      .sort((a,b)=>b[0].localeCompare(a[0]));
    if(!rows.length)return;
-   const total=rows.reduce((sum,[,entry])=>sum+(Number(entry.pages)||0),0);
+   const bookPagesFor=entry=>Number(entry?.bookPages&&Object.keys(entry.bookPages).length?entry.bookPages[String(bookId)]:entry?.pages)||0;
+   const total=rows.reduce((sum,[,entry])=>sum+bookPagesFor(entry),0);
    const heading=document.createElement('div');
    heading.className='card';
    heading.innerHTML='<div class="eyebrow">Okuma geçmişim</div><h2 class="serif" style="font-size:25px;margin:6px 0 8px">Bu kitapta okuduklarım</h2>'+
      '<p class="muted" style="font-size:13px;margin:0 0 10px">'+rows.length+' kayıtlı gün · '+total.toLocaleString('tr-TR')+' sayfa</p>'+
      rows.map(([date,entry])=>{
        const label=new Date(date+'T12:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
-       return '<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee7db"><span>'+esc(label)+'</span><strong style="white-space:nowrap">'+Number(entry.pages).toLocaleString('tr-TR')+' sayfa</strong></div>';
+       return '<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee7db"><span>'+esc(label)+'</span><strong style="white-space:nowrap">'+bookPagesFor(entry).toLocaleString('tr-TR')+' sayfa</strong></div>';
      }).join('');
    host.replaceChildren(heading);
  }catch(e){host.replaceChildren()}
