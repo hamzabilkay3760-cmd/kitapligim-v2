@@ -403,7 +403,7 @@ function renderReadingJournalWeeklySafe(){
    const rows=allEntries.map((x,index)=>{
      const book=state.books.find(b=>String(b.id)===String(x.bookId));
      const pages=Number(x.pages)||0;
-     return '<div class="readingHistoryRow" '+(index>=14?'hidden':'')+' style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee5d6">'+
+     return '<div class="readingHistoryRow" '+(index>=14?'hidden':'')+' style="display:'+(index>=14?'none':'flex')+';align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee5d6">'+
        '<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(fmtDate(x.key))+'</div><div class="muted" style="font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(book?String(book.title||''):'Kitap kaydı bulunamadı')+'</div></div>'+
        '<div style="font-size:13px;font-weight:900;color:#182640;white-space:nowrap">'+(pages?pages+' sayfa':'Okundu')+'</div>'+
      '</div>';
@@ -433,7 +433,7 @@ function renderReadingJournalWeeklySafe(){
  }
  const first=view.querySelector('.card');
  if(first)view.insertBefore(card,first);else view.appendChild(card);
- const more=card.querySelector('#readingHistoryMore');if(more)more.onclick=()=>{card.querySelectorAll('.readingHistoryRow[hidden]').forEach(row=>row.hidden=false);more.remove()};
+ const more=card.querySelector('#readingHistoryMore');if(more)more.onclick=()=>{card.querySelectorAll('.readingHistoryRow[hidden]').forEach(row=>{row.hidden=false;row.style.display='flex'});more.remove()};
 }
 
 function renderAnnualSummarySafe(){
