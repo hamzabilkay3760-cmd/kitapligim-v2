@@ -229,6 +229,15 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
  #bookDetailView .bookDetailActions button{width:100%;min-width:0}
  #bookDetailView .bookDetailQuotesHead{gap:12px;flex-wrap:wrap}
 }
+
+/* Reading history: restrained, scannable list inside book detail. */
+#bookDetailView #bookReadingHistorySection .card{padding:20px 19px;background:#fffdfa;border:1px solid #e9e1d5;box-shadow:none}
+#bookDetailView .bookReadingHistoryRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid #eee7db;font-size:13px;color:#4d5260}
+#bookDetailView .bookReadingHistoryRow strong{font-size:12px;font-weight:750;color:#182640;white-space:nowrap}
+#bookDetailView #bookNotesSection .between h2{font-size:clamp(23px,4vw,29px)!important;line-height:1.2}
+#bookDetailView #bookNotesSection .between{align-items:center!important;flex-wrap:wrap}
+#bookDetailView #bookNotesSection #bookNotesList .card{border:1px solid #eee6d8!important;background:#fffdfa!important;box-shadow:none!important;border-radius:14px!important}
+@media(max-width:520px){#bookDetailView #bookReadingHistorySection .card{padding:17px 14px}#bookDetailView #bookNotesSection .between h2{font-size:24px!important}}
 </style>
 </head>
 <body>
@@ -1616,11 +1625,14 @@ function setupBookReadingHistory(bookId){
    heading.className='card';
    heading.innerHTML='<div class="eyebrow">Okuma geçmişim</div><h2 class="serif" style="font-size:25px;margin:6px 0 8px">Bu kitapta okuduklarım</h2>'+
      '<p class="muted" style="font-size:13px;margin:0 0 10px">'+rows.length+' kayıtlı gün · '+total.toLocaleString('tr-TR')+' sayfa</p>'+
-     rows.map(([date,entry])=>{
+     rows.map(([date,entry],index)=>{
        const label=new Date(date+'T12:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
-       return '<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee7db"><span>'+esc(label)+'</span><strong style="white-space:nowrap">'+bookPagesFor(entry).toLocaleString('tr-TR')+' sayfa</strong></div>';
-     }).join('');
+       return '<div class="bookReadingHistoryRow"'+(index>=5?' hidden style="display:none"':'')+'><span>'+esc(label)+'</span><strong>'+bookPagesFor(entry).toLocaleString('tr-TR')+' sayfa</strong></div>';
+     }).join('')+
+     (rows.length>5?'<button type="button" class="btn secondary" id="bookHistoryToggle" style="margin-top:10px;width:100%;border-radius:11px">Tüm kayıtları göster ('+rows.length+')</button>':'');
    host.replaceChildren(heading);
+   const toggle=heading.querySelector('#bookHistoryToggle');
+   if(toggle)toggle.onclick=()=>{const expanded=toggle.dataset.expanded==='true';heading.querySelectorAll('.bookReadingHistoryRow[hidden]').forEach(row=>{row.hidden=false;row.style.display='flex'});if(expanded){heading.querySelectorAll('.bookReadingHistoryRow').forEach((row,index)=>{if(index>=5){row.hidden=true;row.style.display='none'}})}toggle.dataset.expanded=expanded?'false':'true';toggle.textContent=expanded?'Tüm kayıtları göster ('+rows.length+')':'Daha az göster'};
  }catch(e){host.replaceChildren()}
 }
 function setupRelatedBooks(bookId){
