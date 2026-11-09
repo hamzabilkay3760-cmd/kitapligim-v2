@@ -562,7 +562,7 @@ function renderMonthlyReadingCalendarSafe(){
    const dayNames=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
    const keyFor=d=>year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
    const monthKeys=Array.from({length:totalDays},(_,i)=>keyFor(i+1));
-   const entries=monthKeys.filter(k=>days[k]);
+   const entries=monthKeys.filter(k=>Number(days[k]?.pages)>0);
    const totalPages=entries.reduce((n,k)=>n+(Number(days[k]?.pages)||0),0);
    const calendarBooksFor=entry=>{const ids=Array.isArray(entry?.bookIds)?entry.bookIds:entry?.bookId?[entry.bookId]:[];return [...new Set(ids.map(String))].map(id=>state.books.find(b=>String(b.id)===id)).filter(Boolean);};
    const finishedByDate={};
@@ -664,7 +664,7 @@ function renderMonthlyReadingCalendarSafe(){
        selectedBook.currentPage=String(next);
        saveReadingStreakData(latest);save();
        readingCalendarSelectedDay=key;
-       renderMonthlyReadingCalendarSafe();renderReadingJournalWeeklySafe();setupReadingStreak();
+       renderMonthlyReadingCalendarSafe();renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();setupReadingStreak();
      };
      detail.querySelectorAll('.readingPerBookEdit').forEach(btn=>btn.onclick=ev=>{
        ev.stopPropagation();const id=String(btn.dataset.id||'');
@@ -761,6 +761,7 @@ function renderMonthlyReadingCalendarSafe(){
          readingCalendarSelectedDay=key;
          renderMonthlyReadingCalendarSafe();
          renderReadingJournalWeeklySafe();
+         renderMonthlyReadingComparison();
        };
      };
    };
