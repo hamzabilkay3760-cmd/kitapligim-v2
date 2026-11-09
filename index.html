@@ -380,7 +380,7 @@ function renderReadingJournalWeeklySafe(){
      const d=new Date(monday);d.setDate(monday.getDate()+i);
      weekKeys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
    }
-   const weekEntries=weekKeys.map(k=>({key:k,...(days[k]||{})})).filter(x=>days[x.key]);
+   const weekEntries=weekKeys.map(k=>({key:k,...(days[k]||{})})).filter(x=>Number(days[x.key]?.pages)>0);
    const readDays=weekEntries.length;
    const totalPages=weekEntries.reduce((n,x)=>n+(Number(x.pages)||0),0);
    const pageDays=weekEntries.filter(x=>Number(x.pages)>0).length;
@@ -395,15 +395,15 @@ function renderReadingJournalWeeklySafe(){
    const topId=Object.keys(byBook).sort((a,b)=>(byBook[b].pages-byBook[a].pages)||(byBook[b].days-byBook[a].days))[0]||'';
    const topBook=state.books.find(b=>String(b.id)===String(topId));
 
-   const allEntries=Object.keys(days).sort().reverse().slice(0,14).map(k=>({key:k,...days[k]}));
+   const allEntries=Object.keys(days).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&Number(days[k]?.pages)>0).sort().reverse().map(k=>({key:k,...days[k]}));
    const fmtDate=k=>{
      const d=new Date(k+'T12:00:00');
      return d.toLocaleDateString('tr-TR',{weekday:'short',day:'numeric',month:'short'});
    };
-   const rows=allEntries.map(x=>{
+   const rows=allEntries.map((x,index)=>{
      const book=state.books.find(b=>String(b.id)===String(x.bookId));
      const pages=Number(x.pages)||0;
-     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee5d6">'+
+     return '<div class="readingHistoryRow" '+(index>=14?'hidden':'')+' style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee5d6">'+
        '<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(fmtDate(x.key))+'</div><div class="muted" style="font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(book?String(book.title||''):'Kitap kaydı bulunamadı')+'</div></div>'+
        '<div style="font-size:13px;font-weight:900;color:#182640;white-space:nowrap">'+(pages?pages+' sayfa':'Okundu')+'</div>'+
      '</div>';
@@ -426,13 +426,14 @@ function renderReadingJournalWeeklySafe(){
      '<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+
      (topBook?'<div style="margin-top:11px;padding:10px 11px;border-radius:12px;background:#fbf7ee"><div class="eyebrow" style="font-size:9px">Bu hafta en çok okuduğun</div><div style="font-size:13px;font-weight:800;color:#182640;margin-top:3px">'+esc(String(topBook.title||''))+'</div></div>':'')+
      '<div style="margin-top:15px"><div class="between"><div class="eyebrow">Son okumalar</div><div class="muted" style="font-size:10px">'+allEntries.length+' kayıt</div></div>'+
-       (rows||'<div class="muted" style="font-size:12px;padding:14px 0 2px">Henüz günlük kaydı yok. Kütüphanem’deki Okuma Serisi kartından ilk kaydını ekleyebilirsin.</div>')+
+       (rows||'<div class="muted" style="font-size:12px;padding:14px 0 2px">Henüz günlük kaydı yok. Kütüphanem’deki Okuma Serisi kartından ilk kaydını ekleyebilirsin.</div>')+(allEntries.length>14?'<button type="button" id="readingHistoryMore" class="btn secondary" style="margin-top:12px;width:100%">Tüm geçmişi göster ('+allEntries.length+' kayıt)</button>':'')+
      '</div>';
  }catch(e){
    card.innerHTML='<div class="eyebrow">Okuma günlüğü</div><p class="muted" style="margin:8px 0 0">Günlük hazırlanamadı; diğer veriler etkilenmedi.</p>';
  }
  const first=view.querySelector('.card');
  if(first)view.insertBefore(card,first);else view.appendChild(card);
+ const more=card.querySelector('#readingHistoryMore');if(more)more.onclick=()=>{card.querySelectorAll('.readingHistoryRow[hidden]').forEach(row=>row.hidden=false);more.remove()};
 }
 
 function renderAnnualSummarySafe(){
