@@ -189,6 +189,12 @@ nav{background:rgba(255,252,247,.97)!important;border-top:1px solid #e0d3bf!impo
 /* Keep fixed tab bar from obscuring last library card and its buttons */
 main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 #libraryView{padding-bottom:35px}
+
+/* Image-free library header restoration */
+.libraryHeroStatic{min-height:0!important;margin:0 0 17px!important;padding:0!important;display:block!important;background:transparent!important;overflow:visible!important}
+.libraryHeroStatic .libraryHeroText{width:100%!important}
+.libraryHeroStatic .title{font-size:clamp(35px,7.5vw,60px)!important}
+.readingCornerStill{display:none!important}
 </style>
 </head>
 <body>
