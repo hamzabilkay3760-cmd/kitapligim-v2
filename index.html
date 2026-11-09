@@ -457,7 +457,9 @@ function renderMonthlyReadingComparison(){
   };
   const current=summarize(0),previous=summarize(-1);
   const monthLabel=new Intl.DateTimeFormat('tr-TR',{month:'long'}).format(today);
-  const delta=current.pages-previous.pages;
+  const elapsedDays=Math.max(1,today.getDate());
+  const dailyAverage=current.pages/elapsedDays;
+  const dailyAverageText=Number.isInteger(dailyAverage)?String(dailyAverage):dailyAverage.toLocaleString('tr-TR',{maximumFractionDigits:1});
   const format=n=>n.toLocaleString('tr-TR');
   card.innerHTML='<div class="eyebrow" style="font-size:13px;font-weight:850;color:#263c55">Okuma istatistikleri</div>'+
    '<h2 class="serif" style="font-size:28px;font-weight:800;margin:6px 0 12px">Aylık karşılaştırma</h2>'+
@@ -465,7 +467,7 @@ function renderMonthlyReadingComparison(){
     '<div style="background:#f7f1e6;padding:13px;border-radius:14px"><div style="font-size:12px;font-weight:800;color:#344b64">Bu ay · '+esc(monthLabel)+'</div><div style="font:700 25px Georgia,serif;margin:7px 0 3px;color:#182640">'+format(current.pages)+'</div><div class="muted" style="font-size:12px">sayfa · '+current.days+' gün</div></div>'+
     '<div style="background:#f7f1e6;padding:13px;border-radius:14px"><div style="font-size:12px;font-weight:800;color:#344b64">Geçen ay</div><div style="font:700 25px Georgia,serif;margin:7px 0 3px;color:#182640">'+format(previous.pages)+'</div><div class="muted" style="font-size:12px">sayfa · '+previous.days+' gün</div></div>'+
    '</div>'+
-   '<p class="muted" style="font-size:12px;line-height:1.5;margin:12px 0 0">'+(current.pages===0&&previous.pages===0?'Karşılaştırma için günlük okuma kayıtları oluşturabilirsin.':delta===0?'İki ayın kayıtlı sayfa toplamı eşit.':delta>0?'Bu ay geçen aya göre '+format(delta)+' sayfa daha fazla kaydettin.':'Bu ay geçen aya göre '+format(-delta)+' sayfa daha az kaydettin.')+' Ay henüz tamamlanmamış olabilir.</p>';
+   '<p class="muted" style="font-size:13px;line-height:1.5;margin:12px 0 0;font-weight:650">Günde ortalama '+dailyAverageText+' sayfa okudun.</p>';
  }catch(e){card.innerHTML='<div class="eyebrow">Okuma istatistikleri</div><p class="muted">Aylık karşılaştırma şu anda görüntülenemiyor.</p>'}
  const journal=$('#readingJournalWeekly');if(journal&&journal.parentNode===view)view.insertBefore(card,journal.nextSibling);else view.insertBefore(card,view.querySelector('.card'));
 }
