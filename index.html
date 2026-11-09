@@ -1427,6 +1427,39 @@ function setupQuoteTagFilters(qs){
  [...wrap.querySelectorAll('.quoteTagBtn')].forEach(btn=>btn.onclick=()=>apply(btn.dataset.tag));
  apply('');
 }
+function highlightLibrarySearchInDetail(){
+ const query=String($('#searchInput')?.value||'').trim();
+ const root=$('#bookDetailView');
+ if(!query||!root)return;
+ const lower=query.toLocaleLowerCase('tr-TR');
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+ const nodes=[];
+ while(walker.nextNode()){
+   const node=walker.currentNode,el=node.parentElement;
+   if(!el||el.closest('button,input,textarea,select,script,style,mark'))continue;
+   if(String(node.nodeValue||'').toLocaleLowerCase('tr-TR').includes(lower))nodes.push(node);
+ }
+ let first=null;
+ nodes.forEach(node=>{
+   const raw=node.nodeValue,normalized=raw.toLocaleLowerCase('tr-TR');
+   const fragment=document.createDocumentFragment();
+   let from=0,at=normalized.indexOf(lower);
+   while(at>=0){
+     if(at>from)fragment.appendChild(document.createTextNode(raw.slice(from,at)));
+     const mark=document.createElement('mark');
+     mark.className='bookSearchHighlight';
+     mark.style.cssText='background:#ffeb83;color:#182640;padding:1px 3px;border-radius:3px;font-weight:750';
+     mark.textContent=raw.slice(at,at+query.length);
+     fragment.appendChild(mark);
+     if(!first)first=mark;
+     from=at+query.length;at=normalized.indexOf(lower,from);
+   }
+   if(from<raw.length)fragment.appendChild(document.createTextNode(raw.slice(from)));
+   node.replaceWith(fragment);
+ });
+ const archive=root.querySelector('.archiveBox .bookSearchHighlight');
+ if(archive)archive.scrollIntoView({block:'center',behavior:'smooth'});
+}
 function renderBook(id){
   currentBookId=id; const b=state.books.find(x=>x.id===id); if(!b)return;
   if(b.status==='Okudum'&&String(b.finishedDate||'').includes('NaN')){
@@ -1442,7 +1475,7 @@ function renderBook(id){
   <div id="relatedBooksSection" class="section-gap"></div>
   <div class="between section-gap bookDetailQuotesHead"><div><div class="eyebrow">Kayıtlı cümleler</div><h2 class="serif" style="font-size:38px;margin:8px 0">Alıntılar</h2></div><button id="addQuote">+ Alıntı ekle</button></div>
   <div id="quotesList">${qs.length?qs.map(q=>quoteCard(q)).join(''):`<div class="empty"><h2 class="serif">Bu kitap için henüz alıntı yok</h2><p class="muted">Elle ekleyebilir veya Fotoğraf Tara ile sayfadan aktarabilirsiniz.</p></div>`}</div>`;
-  $('#backLibrary').onclick=()=>{show('libraryView');renderLibrary()}; $('#miniBtn').onclick=()=>renderMini(id); $('#editBook').onclick=()=>renderBookForm(b); $('#addQuote').onclick=()=>renderQuoteForm(id); $$('.editQuote').forEach(x=>x.onclick=()=>renderQuoteForm(id,x.dataset.qid)); $$('.delQuote').forEach(x=>x.onclick=()=>{if(confirm('Alıntı silinsin mi?')){state.quotes=state.quotes.filter(q=>q.id!==x.dataset.qid);save();renderBook(id)}}); setupQuoteFavorites(id,qs); setupQuoteTagFilters(qs); setupBookFavorite(id); setupDetailReadingProgress(id); setupBookReadingSpeed(id); setupBookCompletionSummary(id); setupBookNotes(id); setupBookReadingHistory(id); setupRelatedBooks(id)
+  $('#backLibrary').onclick=()=>{show('libraryView');renderLibrary()}; $('#miniBtn').onclick=()=>renderMini(id); $('#editBook').onclick=()=>renderBookForm(b); $('#addQuote').onclick=()=>renderQuoteForm(id); $$('.editQuote').forEach(x=>x.onclick=()=>renderQuoteForm(id,x.dataset.qid)); $$('.delQuote').forEach(x=>x.onclick=()=>{if(confirm('Alıntı silinsin mi?')){state.quotes=state.quotes.filter(q=>q.id!==x.dataset.qid);save();renderBook(id)}}); setupQuoteFavorites(id,qs); setupQuoteTagFilters(qs); setupBookFavorite(id); setupDetailReadingProgress(id); setupBookReadingSpeed(id); setupBookCompletionSummary(id); setupBookNotes(id); setupBookReadingHistory(id); setupRelatedBooks(id); highlightLibrarySearchInDetail()
 }
 function setupBookReadingHistory(bookId){
  const host=$('#bookReadingHistorySection');
