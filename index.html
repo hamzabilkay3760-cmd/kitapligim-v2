@@ -625,7 +625,7 @@ function renderMonthlyReadingCalendarSafe(){
      const readBookRows=savedBookPages
        ? Object.entries(savedBookPages).filter(([,p])=>Number(p)>0).map(([id,p])=>({book:state.books.find(b=>String(b.id)===String(id)),pages:Number(p)}))
        : entry&&entry.bookId?[{book:state.books.find(b=>String(b.id)===String(entry.bookId)),pages:Number(entry.pages)||0}]:[];
-     const readingBreakdown=readBookRows.map(({book:b,pages:p})=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #e7ddca">'+(b?.cover?'<img src="'+esc(String(b.cover))+'" alt="" style="width:34px;height:49px;object-fit:cover;border-radius:5px">':'<div style="width:34px;height:49px;background:#eee6d6;border-radius:5px;display:grid;place-items:center">📖</div>')+'<div style="min-width:0;flex:1"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(String(b?.title||'Kitap kaydı'))+'</div><div style="font-size:11px;color:#746e63">'+p+' sayfa</div></div></div>').join('');
+     const readingBreakdown=readBookRows.map(({book:b,pages:p})=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #e7ddca">'+(b?.cover?'<img src="'+esc(String(b.cover))+'" alt="" style="width:34px;height:49px;object-fit:cover;border-radius:5px">':'<div style="width:34px;height:49px;background:#eee6d6;border-radius:5px;display:grid;place-items:center">📖</div>')+'<div style="min-width:0;flex:1"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(String(b?.title||'Kitap kaydı'))+'</div><div style="font-size:11px;color:#746e63">'+p+' sayfa</div></div><button type="button" class="readingPerBookEdit" data-id="'+esc(String(b?.id||''))+'" style="padding:6px;border:1px solid #ded2bb;border-radius:8px;background:white;color:#182640;font-size:11px">Düzenle</button><button type="button" class="readingPerBookDelete" data-id="'+esc(String(b?.id||''))+'" style="padding:6px;border:1px solid #e7c9c4;border-radius:8px;background:white;color:#a13e31;font-size:11px">Sil</button></div>').join('');
 
      const dt=new Date(key+'T12:00:00');
      const label=dt.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -640,7 +640,45 @@ function renderMonthlyReadingCalendarSafe(){
        finishedHtml+
        '<button id="readingCalendarEdit" type="button" class="btn secondary" style="padding:7px 10px;font-size:11px;margin-top:10px">'+(entry?'Okuma kaydını düzenle':'Bu güne okuma kaydı ekle')+'</button>'+
      '</div>';
+     // Edit only the selected book's contribution; preserve every other book.
+     const changeBookPages=(id,newPages)=>{
+       const latest=getReadingStreakData(),existing=latest.days[key];
+       if(!existing)return;
+       const original=existing.bookPages&&typeof existing.bookPages==='object'?{...existing.bookPages}:{};
+       if(!Object.keys(original).length&&existing.bookId)original[String(existing.bookId)]=Math.max(0,Number(existing.pages)||0);
+       const previous=Math.max(0,Number(original[id])||0),delta=newPages-previous;
+       const selectedBook=state.books.find(b=>String(b.id)===id);
+       if(!selectedBook)return;
+       const current=Math.max(0,Number(selectedBook.currentPage)||0),total=Math.max(0,Number(selectedBook.pages)||0);
+       const next=current+delta;
+       if(next<0||(total&&next>total)){alert('Bu değişiklik kitabın ilerlemesini geçersiz yapıyor. Önce kitabın son okunan sayfasını kontrol et.');return;}
+       if(newPages>0)original[id]=newPages;else delete original[id];
+       const remaining=Object.entries(original).filter(([,p])=>Number(p)>0);
+       if(remaining.length){
+         const ids=remaining.map(([bookId])=>bookId);
+         latest.days[key]={...existing,bookId:ids[0],bookIds:ids,bookPages:Object.fromEntries(remaining),pages:remaining.reduce((sum,[,p])=>sum+Number(p),0),at:Date.now()};
+       }else delete latest.days[key];
+       selectedBook.currentPage=String(next);
+       saveReadingStreakData(latest);save();
+       readingCalendarSelectedDay=key;
+       renderMonthlyReadingCalendarSafe();renderReadingJournalWeeklySafe();setupReadingStreak();
+     };
+     detail.querySelectorAll('.readingPerBookEdit').forEach(btn=>btn.onclick=ev=>{
+       ev.stopPropagation();const id=String(btn.dataset.id||'');
+       const row=readBookRows.find(x=>String(x.book?.id)===id);if(!row)return;
+       const answer=prompt('Bu kitap için o gün okuduğun sayfa sayısı:',String(row.pages));
+       if(answer===null)return;
+       const number=Number(answer);
+       if(!Number.isSafeInteger(number)||number<0){alert('Geçerli bir sayfa sayısı gir. Silmek için 0 yazabilirsin.');return;}
+       changeBookPages(id,number);
+     });
+     detail.querySelectorAll('.readingPerBookDelete').forEach(btn=>btn.onclick=ev=>{
+       ev.stopPropagation();const id=String(btn.dataset.id||'');
+       const row=readBookRows.find(x=>String(x.book?.id)===id);
+       if(row&&confirm('Bu kitabın '+row.pages+' sayfalık okuma kaydı silinsin mi?'))changeBookPages(id,0);
+     });
      const edit=card.querySelector('#readingCalendarEdit');
+     if(edit&&entry&&readBookRows.length)edit.style.display='none';
      if(edit)edit.onclick=e=>{
        e.stopPropagation();
        const books=state.books.slice();
