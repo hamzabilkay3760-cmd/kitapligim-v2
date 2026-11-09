@@ -621,6 +621,12 @@ function renderMonthlyReadingCalendarSafe(){
      const booksRead=calendarBooksFor(entry);
      const book=booksRead[0]||null;
      const finishedBooks=finishedByDate[key]||[];
+     const savedBookPages=entry?.bookPages&&typeof entry.bookPages==='object'?entry.bookPages:null;
+     const readBookRows=savedBookPages
+       ? Object.entries(savedBookPages).filter(([,p])=>Number(p)>0).map(([id,p])=>({book:state.books.find(b=>String(b.id)===String(id)),pages:Number(p)}))
+       : entry&&entry.bookId?[{book:state.books.find(b=>String(b.id)===String(entry.bookId)),pages:Number(entry.pages)||0}]:[];
+     const readingBreakdown=readBookRows.map(({book:b,pages:p})=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #e7ddca">'+(b?.cover?'<img src="'+esc(String(b.cover))+'" alt="" style="width:34px;height:49px;object-fit:cover;border-radius:5px">':'<div style="width:34px;height:49px;background:#eee6d6;border-radius:5px;display:grid;place-items:center">📖</div>')+'<div style="min-width:0;flex:1"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(String(b?.title||'Kitap kaydı'))+'</div><div style="font-size:11px;color:#746e63">'+p+' sayfa</div></div></div>').join('');
+
      const dt=new Date(key+'T12:00:00');
      const label=dt.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
      const finishedHtml=finishedBooks.length
@@ -629,7 +635,7 @@ function renderMonthlyReadingCalendarSafe(){
      detail.innerHTML='<div style="padding:12px;border-radius:14px;background:#f8f2e7;border:1px solid #e6d9c0">'+
        '<div class="eyebrow" style="font-size:9px">'+esc(label)+'</div>'+
        (entry
-         ? '<div style="margin-top:6px"><div class="eyebrow" style="font-size:9px">Okuma kaydı</div><div style="font-size:14px;font-weight:800;color:#182640;margin-top:4px">'+(booksRead.length?booksRead.map(b=>'<span style="display:inline-flex;align-items:center;gap:7px;margin:3px 8px 3px 0">'+(b.cover?'<img src="'+esc(String(b.cover))+'" alt="" style="width:27px;height:39px;object-fit:cover;border-radius:4px">':'')+esc(String(b.title||''))+'</span>').join(''):'Kitap kaydı bulunamadı')+'</div><div class="muted" style="font-size:11px;margin-top:3px">'+((Number(entry.pages)||0)?Number(entry.pages)+' sayfa':'Okundu')+'</div></div>'
+         ? '<div style="margin-top:6px"><div class="eyebrow" style="font-size:9px">Okuma kaydı</div>'+readingBreakdown+'<div style="display:none"><div style="font-size:14px;font-weight:800;color:#182640;margin-top:4px">'+(booksRead.length?booksRead.map(b=>'<span style="display:inline-flex;align-items:center;gap:7px;margin:3px 8px 3px 0">'+(b.cover?'<img src="'+esc(String(b.cover))+'" alt="" style="width:27px;height:39px;object-fit:cover;border-radius:4px">':'')+esc(String(b.title||''))+'</span>').join(''):'Kitap kaydı bulunamadı')+'</div><div class="muted" style="font-size:11px;margin-top:3px">'+((Number(entry.pages)||0)?Number(entry.pages)+' sayfa':'Okundu')+'</div></div>'
          : '<div class="muted" style="font-size:12px;margin-top:5px">Bu gün için sayfa okuma kaydı yok.</div>')+
        finishedHtml+
        '<button id="readingCalendarEdit" type="button" class="btn secondary" style="padding:7px 10px;font-size:11px;margin-top:10px">'+(entry?'Okuma kaydını düzenle':'Bu güne okuma kaydı ekle')+'</button>'+
@@ -962,7 +968,7 @@ function setupReadingStreak(){
      if(total&&previous+n>total){dialog.querySelector('#streakError').textContent='Bu kayıt kitabın toplam sayfa sayısını aşıyor. Önce kitap ilerlemesini kontrol et.';return;}
      const latest=getReadingStreakData();
      const old=latest.days[today]||{};
-     latest.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(old.bookIds||[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now()};
+     latest.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(old.bookIds||[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages:{...(old.bookPages||{}),[String(book.id)]:Math.max(0,Number((old.bookPages||{})[String(book.id)])||0)+n}};
      book.currentPage=String(previous+n);
      saveReadingStreakData(latest);
      save();
@@ -1139,7 +1145,7 @@ function renderBookForm(book=null){
       const reading=getReadingStreakData(),today=localDateKey();
       const entry=reading.days[today]||{};
       // Preserve existing daily totals; page progress is an additional reading event.
-      reading.days[today]={...entry,bookId:obj.id,bookIds:[...new Set([...(entry.bookIds||[]),entry.bookId,obj.id].filter(Boolean).map(String))],pages:Math.max(0,Number(entry.pages)||0)+addedPages,at:Date.now()};
+      reading.days[today]={...entry,bookId:obj.id,bookIds:[...new Set([...(entry.bookIds||[]),entry.bookId,obj.id].filter(Boolean).map(String))],pages:Math.max(0,Number(entry.pages)||0)+addedPages,at:Date.now(),bookPages:{...(entry.bookPages||{}),[String(obj.id)]:Math.max(0,Number((entry.bookPages||{})[String(obj.id)])||0)+addedPages}};
       saveReadingStreakData(reading);
     }
     save();
