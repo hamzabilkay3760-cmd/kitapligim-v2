@@ -912,7 +912,7 @@ function setupReadingStreak(){
  panel.appendChild(card);
  card.onclick=e=>{
    e.stopPropagation();
-   if(!readingBooks.length){alert('Önce “Okuyorum” durumunda bir kitap eklemelisin.');return;}
+   if(!readingBooks.length){renderBookForm();return;}
    document.getElementById('readingStreakOverlay')?.remove();
    const overlay=document.createElement('div');
    overlay.id='readingStreakOverlay';
@@ -938,6 +938,11 @@ function setupReadingStreak(){
      });
    };
    paint();
+   const addBookButton=document.createElement('button');
+   addBookButton.type='button';addBookButton.textContent='+ Yeni kitap ekle';
+   addBookButton.style.cssText='width:100%;margin-top:10px;padding:12px;border:1px solid #d9ccb5;border-radius:12px;background:#fff;color:#182640;font-weight:700';
+   addBookButton.onclick=()=>{close();renderBookForm()};
+   dialog.querySelector('#streakForm').appendChild(addBookButton);
    dialog.querySelector('#streakBegin').onclick=()=>{
      dialog.querySelector('#streakWelcome').style.display='none';
      dialog.querySelector('#streakForm').style.display='block';
