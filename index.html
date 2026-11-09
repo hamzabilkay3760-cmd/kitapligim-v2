@@ -224,6 +224,7 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
           <option value="activity">Son etkinlik</option>
           <option value="added">Son eklenen</option>
           <option value="read">Son okunan</option>
+          <option value="finished">Bitirme tarihi (en yeni)</option>
           <option value="quotes">En çok alıntı</option>
           <option value="rating">En yüksek puan</option>
           <option value="az">A–Z</option>
@@ -972,6 +973,14 @@ function renderLibrary(){
     books.sort((a,b)=>(indexMap.get(String(b.b.id))??0)-(indexMap.get(String(a.b.id))??0));
   }else if(librarySort==='read'){
     books.sort((a,b)=>(lastReadByBook[String(b.b.id)]||0)-(lastReadByBook[String(a.b.id)]||0)||(b.latest||0)-(a.latest||0));
+  }else if(librarySort==='finished'){
+    const dateValue=item=>{
+      const value=String(item.b.finishedDate||'').trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return 0;
+      const time=new Date(value+'T12:00:00').getTime();
+      return Number.isFinite(time)?time:0;
+    };
+    books.sort((a,b)=>dateValue(b)-dateValue(a)||(b.latest||0)-(a.latest||0));
   }else if(librarySort==='quotes'){
     books.sort((a,b)=>b.bq.length-a.bq.length||(b.latest||0)-(a.latest||0));
   }else if(librarySort==='rating'){
@@ -1004,6 +1013,7 @@ function renderLibrary(){
           <span class="bookMeta"><strong>${bq.length}</strong> alıntı</span>
           ${(b.status||'Okuyorum')==='Okuyorum'&&lastPage?`<span class="bookMeta">Son okunan sayfa: <strong>${esc(lastPage)}</strong></span>`:''}
           <span class="bookMeta">${esc(b.status||'Okuyorum')}</span>
+          ${b.status==='Okudum'&&/^\d{4}-\d{2}-\d{2}$/.test(String(b.finishedDate||''))?`<span class="bookMeta">Bitiş: ${esc(new Date(b.finishedDate+'T12:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'short',year:'numeric'}))}</span>`:''}
         </div>
         <div class="bookLast">${latest?'Son alıntı · '+relativeBookTime(latest):'Henüz alıntı eklenmedi'}</div>
         <div class="bookActions">
