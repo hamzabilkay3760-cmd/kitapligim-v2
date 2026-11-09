@@ -176,16 +176,16 @@ nav{background:rgba(255,252,247,.97)!important;border-top:1px solid #e0d3bf!impo
 @media(prefers-reduced-motion:reduce){button,.btn{transition:none!important}}
 
 
-/* Calm, restrained reading hero; preserve existing static artwork and application behavior */
-.libraryHeroStatic{position:relative;display:flex;align-items:center;min-height:156px;margin:-19px -15px 17px;padding:20px 19px;overflow:hidden;isolation:isolate;background:#f7efe4}
+/* Subtle, distant reading nook: preserve all existing app behavior */
+.libraryHeroStatic{position:relative;display:flex;align-items:center;min-height:162px;margin:-19px -15px 17px;padding:20px 19px;overflow:hidden;isolation:isolate;background:#f7efe4}
 .libraryHeroStatic .libraryHeroText{position:relative;z-index:2;flex:1;min-width:0;pointer-events:none}
 .libraryHeroStatic .eyebrow{letter-spacing:.14em}
 .libraryHeroStatic .title{margin-bottom:12px!important;position:relative;z-index:2;white-space:nowrap;font-size:clamp(35px,7.5vw,60px)!important;letter-spacing:-.035em}
 .libraryGoldStroke{display:block;width:min(210px,65%);height:16px;margin:0 0 0 4px}
-.readingCornerStill{position:absolute;right:0;top:12px;bottom:12px;width:47%;height:auto;display:block;overflow:hidden;pointer-events:none;z-index:1;border-radius:12px 0 0 12px}
-.readingCornerStill img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;object-position:center;filter:brightness(.75) saturate(.78) contrast(.97);-webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.25) 13%,black 42%);mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.25) 13%,black 42%)}
-@media(min-width:700px){.libraryHeroStatic{min-height:195px;padding:30px 26px;margin-left:-24px;margin-right:-24px}.readingCornerStill{width:39%}}
-@media(max-width:420px){.libraryHeroStatic{min-height:146px;padding:21px 15px}.libraryHeroStatic .title{font-size:37px!important}.libraryGoldStroke{width:150px}.readingCornerStill{width:44%;top:15px;bottom:15px}}
+.readingCornerStill{position:absolute;right:0;top:0;bottom:0;width:48%;height:auto;display:block;overflow:hidden;pointer-events:none;z-index:1}
+.readingCornerStill img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;object-position:62% 50%;filter:brightness(.83) saturate(.83) contrast(.96);-webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.16) 24%,rgba(0,0,0,.65) 58%,black 90%);mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.16) 24%,rgba(0,0,0,.65) 58%,black 90%)}
+@media(min-width:700px){.libraryHeroStatic{min-height:195px;padding:30px 26px;margin-left:-24px;margin-right:-24px}.readingCornerStill{width:43%}}
+@media(max-width:420px){.libraryHeroStatic{min-height:150px;padding:21px 15px}.libraryHeroStatic .title{font-size:37px!important}.libraryGoldStroke{width:150px}.readingCornerStill{width:45%}}
 /* Keep fixed tab bar from obscuring last library card and its buttons */
 main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 #libraryView{padding-bottom:35px}
