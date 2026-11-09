@@ -998,7 +998,9 @@ function renderLibrary(){
   $$('.openBook').forEach(x=>x.onclick=e=>{e.stopPropagation();renderBook(x.dataset.id)});
   $$('.openMini').forEach(x=>x.onclick=e=>{e.stopPropagation();renderMini(x.dataset.id)});
   $$('.book').forEach(x=>x.onclick=()=>renderBook(x.dataset.id));
-  $$('.filterBtn').forEach(btn=>btn.classList.toggle('activeFilter',btn.dataset.filter===libraryFilter));
+  $('.filterBtn').forEach(btn=>btn.classList.toggle('activeFilter',btn.dataset.filter===libraryFilter));
+  const favoriteFilter=$('.filterBtn[data-filter="Favoriler"]');
+  if(favoriteFilter)favoriteFilter.textContent='★ Favoriler ('+state.books.filter(b=>!!b.favorite).length+')';
   const sortEl=$('#librarySort');if(sortEl)sortEl.value=librarySort;
   setupLibraryReadingProgress();
   const oldQuick=$('#libraryQuickPanel');if(oldQuick)oldQuick.remove();
