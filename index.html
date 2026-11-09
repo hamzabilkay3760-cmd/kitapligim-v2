@@ -1032,11 +1032,12 @@ function setupReadingStreak(){
      if(total&&previous+n>total){dialog.querySelector('#streakError').textContent='Bu kayıt kitabın toplam sayfa sayısını aşıyor. Önce kitap ilerlemesini kontrol et.';return;}
      const latest=getReadingStreakData();
      const old=latest.days[today]||{};
-     latest.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(old.bookIds||[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages:{...(old.bookPages||{}),[String(book.id)]:Math.max(0,Number((old.bookPages||{})[String(book.id)])||0)+n}};
+     latest.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(old.bookIds||[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages:{...((old.bookPages&&Object.keys(old.bookPages).length)?old.bookPages:(old.bookId?{[String(old.bookId)]:Math.max(0,Number(old.pages)||0)}:{})),[String(book.id)]:Math.max(0,Number(((old.bookPages&&Object.keys(old.bookPages).length)?old.bookPages:(old.bookId?{[String(old.bookId)]:Math.max(0,Number(old.pages)||0)}:{}))[String(book.id)])||0)+n}};
      book.currentPage=String(previous+n);
      saveReadingStreakData(latest);
      save();
      close();setupReadingStreak();
+     if($('#dataView')&&!$('#dataView').classList.contains('hidden')){renderMonthlyReadingCalendarSafe();renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();}
    };
  };
 }
@@ -1209,7 +1210,7 @@ function renderBookForm(book=null){
       const reading=getReadingStreakData(),today=localDateKey();
       const entry=reading.days[today]||{};
       // Preserve existing daily totals; page progress is an additional reading event.
-      reading.days[today]={...entry,bookId:obj.id,bookIds:[...new Set([...(entry.bookIds||[]),entry.bookId,obj.id].filter(Boolean).map(String))],pages:Math.max(0,Number(entry.pages)||0)+addedPages,at:Date.now(),bookPages:{...(entry.bookPages||{}),[String(obj.id)]:Math.max(0,Number((entry.bookPages||{})[String(obj.id)])||0)+addedPages}};
+      reading.days[today]={...entry,bookId:obj.id,bookIds:[...new Set([...(entry.bookIds||[]),entry.bookId,obj.id].filter(Boolean).map(String))],pages:Math.max(0,Number(entry.pages)||0)+addedPages,at:Date.now(),bookPages:{...((entry.bookPages&&Object.keys(entry.bookPages).length)?entry.bookPages:(entry.bookId?{[String(entry.bookId)]:Math.max(0,Number(entry.pages)||0)}:{})),[String(obj.id)]:Math.max(0,Number(((entry.bookPages&&Object.keys(entry.bookPages).length)?entry.bookPages:(entry.bookId?{[String(entry.bookId)]:Math.max(0,Number(entry.pages)||0)}:{}))[String(obj.id)])||0)+addedPages}};
       saveReadingStreakData(reading);
     }
     save();
