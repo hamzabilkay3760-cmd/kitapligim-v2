@@ -817,20 +817,19 @@ function localDateKey(offset=0){
  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function streakStats(days){
+ // A streak stays active until the end of the next day, even before today's reading.
+ const valid=Object.keys(days||{}).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&Number(days[k]?.pages)>0).sort();
+ const active=new Set(valid);
  let current=0;
- for(let i=0;i<3650;i++){if(days[localDateKey(-i)])current++;else break}
- let longest=0,run=0;
- const keys=Object.keys(days).sort();
- let prev=null;
- keys.forEach(k=>{
-   const cur=new Date(k+'T12:00:00');
-   if(prev){
-     const diff=Math.round((cur-prev)/86400000);
-     run=diff===1?run+1:1;
-   }else run=1;
-   if(run>longest)longest=run;
-   prev=cur;
- });
+ const anchor=active.has(localDateKey())?0:-1;
+ for(let i=anchor;i>-3650;i--){if(active.has(localDateKey(i)))current++;else break}
+ let longest=0,run=0,prev=null;
+ for(const key of valid){
+  const date=new Date(key+'T12:00:00');
+  if(!Number.isFinite(date.getTime()))continue;
+  run=prev&&Math.round((date-prev)/86400000)===1?run+1:1;
+  longest=Math.max(longest,run);prev=date;
+ }
  return {current,longest};
 }
 
