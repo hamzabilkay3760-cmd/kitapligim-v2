@@ -238,6 +238,29 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 #bookDetailView #bookNotesSection .between{align-items:center!important;flex-wrap:wrap}
 #bookDetailView #bookNotesSection #bookNotesList .card{border:1px solid #eee6d8!important;background:#fffdfa!important;box-shadow:none!important;border-radius:14px!important}
 @media(max-width:520px){#bookDetailView #bookReadingHistorySection .card{padding:17px 14px}#bookDetailView #bookNotesSection .between h2{font-size:24px!important}}
+
+/* Book detail: restrained editorial quotation list, presentation only. */
+#bookDetailView .bookDetailQuotesHead{margin-top:28px;margin-bottom:15px;align-items:center;gap:12px}
+#bookDetailView .bookDetailQuotesHead .eyebrow{font-size:11px;letter-spacing:.04em}
+#bookDetailView .bookDetailQuotesHead h2{margin:5px 0!important;font-size:clamp(28px,4vw,34px)!important}
+#bookDetailView .bookDetailQuotesHead #addQuote{border-radius:12px;min-height:41px}
+#bookDetailView #quoteFavoriteFilters{gap:7px!important;flex-wrap:wrap;margin-bottom:10px!important}
+#bookDetailView #quoteFavoriteFilters button,#bookDetailView #quoteTagFilters .quoteTagBtn{font-size:12px;border-radius:999px;padding:8px 13px;min-height:34px;white-space:nowrap}
+#bookDetailView #quoteTagFilters{background:#faf8f4!important;border:1px solid #eee6da!important;border-radius:13px!important;padding:11px 12px!important;margin-bottom:14px!important}
+#bookDetailView #quotesList>.card{margin:0 0 12px;padding:19px 18px;border:1px solid #e9e2d7;border-radius:17px;background:#fffdfa;box-shadow:0 3px 14px rgba(24,38,64,.025)}
+#bookDetailView #quotesList>.card .between{gap:9px;align-items:center;flex-wrap:wrap}
+#bookDetailView #quotesList>.card .between>div:last-child{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+#bookDetailView #quotesList>.card .between .btn{font-size:11px;padding:7px 10px;border-radius:9px}
+#bookDetailView #quotesList>.card .between .quoteFavoriteBtn{min-width:37px!important;padding:6px 8px!important;font-size:18px!important;margin-right:0!important}
+#bookDetailView #quotesList>.card .quote{font-size:clamp(17px,2.8vw,20px);line-height:1.72;color:#263146;border-left:2px solid #c4a66e;padding-left:15px;margin-top:15px;overflow-wrap:anywhere}
+#bookDetailView #quotesList>.card .note{background:#f7f5f0;border:1px solid #eee8dc;border-radius:11px;padding:12px 13px;font-size:13px;line-height:1.6;color:#55534e}
+#bookDetailView #quotesList>.card .quoteTags span{font-size:10px!important;background:#f6f2e9!important;border-color:#e9ddc7!important;color:#77623c!important}
+@media(max-width:520px){
+ #bookDetailView #quotesList>.card{padding:15px 13px}
+ #bookDetailView .bookDetailQuotesHead #addQuote{font-size:12px;padding:10px 13px}
+ #bookDetailView #quotesList>.card .quote{font-size:18px;line-height:1.65}
+ #bookDetailView #quoteTagFilters{padding:10px!important}
+}
 </style>
 </head>
 <body>
