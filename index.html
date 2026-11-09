@@ -926,7 +926,7 @@ function setupReadingStreak(){
    const close=()=>overlay.remove();
    overlay.onclick=ev=>{if(ev.target===overlay)close();};
    dialog.querySelector('#streakClose').onclick=close;
-   let selectedId=String(done&&todayData.bookId||readingBooks[0].id);
+   let selectedId=String(done&&todayData.bookId||'');
    const choices=dialog.querySelector('#streakBookChoices');
    const paint=()=>{
      choices.innerHTML='';
@@ -946,16 +946,22 @@ function setupReadingStreak(){
    dialog.querySelector('#streakBegin').onclick=()=>{
      dialog.querySelector('#streakWelcome').style.display='none';
      dialog.querySelector('#streakForm').style.display='block';
-     if(done&&pages)dialog.querySelector('#streakPages').value=String(pages);
+     dialog.querySelector('#streakPages').value='';
    };
    dialog.querySelector('#streakSave').onclick=()=>{
      const input=dialog.querySelector('#streakPages'),n=Number(input.value);
      if(!Number.isSafeInteger(n)||n<1){dialog.querySelector('#streakError').textContent='Lütfen en az 1 sayfa gir.';return;}
      const book=readingBooks.find(b=>String(b.id)===selectedId);
-     if(!book)return;
+     if(!book){dialog.querySelector('#streakError').textContent='Önce okuduğun kitabı seç.';return;}
+     const previous=Math.max(0,Number(book.currentPage)||0);
+     const total=Math.max(0,Number(book.pages)||0);
+     if(total&&previous+n>total){dialog.querySelector('#streakError').textContent='Bu kayıt kitabın toplam sayfa sayısını aşıyor. Önce kitap ilerlemesini kontrol et.';return;}
      const latest=getReadingStreakData();
-     latest.days[today]={bookId:book.id,pages:n,at:Date.now()};
+     const old=latest.days[today]||{};
+     latest.days[today]={...old,bookId:book.id,pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now()};
+     book.currentPage=String(previous+n);
      saveReadingStreakData(latest);
+     save();
      close();setupReadingStreak();
    };
  };
