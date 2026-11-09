@@ -487,12 +487,21 @@ function renderBookMemoryArchive(){
  const fields=[['Ana karakterler',chosen.mainCharacters],['Yer / ortam',chosen.setting],['Ana konu',chosen.mainSubject],['Temalar',chosen.themes],['En sevdiğim karakter',chosen.favoriteCharacter],['Tek cümleyle hatırladığım',chosen.memorySentence]].filter(([,v])=>String(v||'').trim());
  const favorites=state.quotes.filter(q=>String(q.bookId)===String(chosen.id)&&q.favorite).slice(0,5);
  card.innerHTML='<div class="eyebrow">Kişisel kitap arşivim</div><h2 class="serif" style="font-size:27px;margin:6px 0 12px">Kitap Hafızam</h2>'+
+ '<label for="bookMemorySearch" style="display:block;font-size:12px;margin-bottom:6px;color:#6a6d73">Kitap, karakter veya not ara</label><input id="bookMemorySearch" type="search" placeholder="Hatırladığın bir kelimeyi yaz..." style="width:100%;box-sizing:border-box;padding:11px;margin-bottom:12px;border:1px solid #d8d2c8;border-radius:10px;background:#fff;color:#182640" />'+
  '<label for="bookMemorySelect" style="display:block;font-size:12px;margin-bottom:6px;color:#6a6d73">Hatırlamak istediğin kitap</label>'+
  '<select id="bookMemorySelect" style="width:100%;padding:11px;border:1px solid #d8d2c8;border-radius:10px;background:#fff;color:#182640">'+books.map(b=>'<option value="'+esc(String(b.id))+'"'+(String(b.id)===bookMemorySelectedId?' selected':'')+'>'+esc(String(b.title||'İsimsiz kitap'))+'</option>').join('')+'</select>'+
  (fields.length?'<div style="margin-top:13px">'+fields.map(([label,value])=>'<div style="padding:10px 0;border-bottom:1px solid #eee7db"><div class="eyebrow">'+esc(label)+'</div><div style="margin-top:4px;white-space:pre-wrap">'+esc(String(value))+'</div></div>').join('')+'</div>':'<p class="muted" style="margin:13px 0 0">Bu kitap için henüz kişisel arşiv notu eklenmemiş.</p>')+
  (favorites.length?'<div style="margin-top:14px"><div class="eyebrow">Favori alıntılarım</div>'+favorites.map(q=>'<p style="padding:10px 0;margin:0;border-bottom:1px solid #eee7db;white-space:pre-wrap">'+esc(String(q.text||q.content||''))+'</p>').join('')+'</div>':'');
  const picker=card.querySelector('#bookMemorySelect');
  if(picker)picker.onchange=()=>{bookMemorySelectedId=picker.value;renderBookMemoryArchive()};
+ const search=card.querySelector('#bookMemorySearch');
+ if(search&&picker)search.oninput=()=>{
+   const term=search.value.trim().toLocaleLowerCase('tr-TR');
+   const matches=books.filter(b=>[b.title,b.author,b.mainCharacters,b.setting,b.mainSubject,b.themes,b.favoriteCharacter,b.memorySentence].some(v=>String(v||'').toLocaleLowerCase('tr-TR').includes(term)));
+   picker.innerHTML=matches.length?matches.map(b=>'<option value="'+esc(String(b.id))+'"'+(String(b.id)===bookMemorySelectedId?' selected':'')+'>'+esc(String(b.title||'İsimsiz kitap'))+'</option>').join(''):'<option value="">Eşleşen kitap bulunamadı</option>';
+   picker.disabled=!matches.length;
+ };
+
  const annual=$('#annualSummarySafe');
  if(annual&&annual.parentNode===view)annual.insertAdjacentElement('afterend',card);else view.appendChild(card);
 }
