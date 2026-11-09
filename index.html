@@ -202,6 +202,33 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 #readingJournalWeekly .between .eyebrow{font-size:12px!important;font-weight:850!important;color:#263c55!important}
 #readingJournalWeekly .muted{color:#615f5c!important}
 #readingJournalWeekly>div[style*="grid-template-columns"] .eyebrow{font-size:11px!important;font-weight:800!important;color:#344b64!important}
+
+/* Book detail refinement: presentation-only, scoped to the detail screen. */
+#bookDetailView{max-width:900px;margin-inline:auto}
+#bookDetailView #backLibrary{margin-bottom:4px;border-radius:11px}
+#bookDetailView .bookDetailCard{padding:clamp(18px,3.5vw,30px);border:1px solid #e9e1d5;border-radius:22px;background:#fffdfa;box-shadow:0 8px 28px rgba(24,38,64,.045)}
+#bookDetailView .bookDetailHero{grid-template-columns:112px minmax(0,1fr);gap:clamp(16px,3vw,26px);align-items:center}
+#bookDetailView .bookDetailCover{width:112px;height:164px;border-radius:9px;box-shadow:0 9px 23px rgba(24,38,64,.13)}
+#bookDetailView .bookDetailTitle{font-size:clamp(25px,4vw,35px);line-height:1.15;letter-spacing:-.035em;overflow-wrap:anywhere}
+#bookDetailView .bookDetailAuthor{line-height:1.5}
+#bookDetailView .bookDetailCard .metaGrid{margin-top:23px;gap:9px}
+#bookDetailView .bookDetailCard .metaItem{background:#f8f6f1;border:1px solid #f0eae0;border-radius:11px;padding:12px 14px;min-width:0;overflow-wrap:anywhere}
+#bookDetailView .bookDetailActions{margin-top:20px;gap:9px}
+#bookDetailView .bookDetailActions button{border-radius:12px;min-height:43px}
+#bookDetailView .archiveBox{border-radius:19px}
+#bookDetailView .bookDetailQuotesHead h2{font-size:clamp(29px,5vw,36px)!important}
+#bookDetailView #bookReadingHistorySection .card,#bookDetailView #bookNotesSection .card,#bookDetailView #relatedBooksSection .card{border-radius:19px}
+@media(max-width:520px){
+ #bookDetailView .bookDetailCard{padding:18px 15px}
+ #bookDetailView .bookDetailHero{grid-template-columns:91px minmax(0,1fr);gap:14px}
+ #bookDetailView .bookDetailCover{width:91px;height:135px}
+ #bookDetailView .bookDetailTitle{font-size:25px}
+ #bookDetailView .bookDetailCard .metaGrid{gap:8px;margin-top:18px}
+ #bookDetailView .bookDetailCard .metaItem{padding:11px 10px}
+ #bookDetailView .bookDetailActions{display:grid;grid-template-columns:1fr;gap:8px}
+ #bookDetailView .bookDetailActions button{width:100%;min-width:0}
+ #bookDetailView .bookDetailQuotesHead{gap:12px;flex-wrap:wrap}
+}
 </style>
 </head>
 <body>
