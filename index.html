@@ -666,11 +666,33 @@ function renderMonthlyReadingCalendarSafe(){
      detail.querySelectorAll('.readingPerBookEdit').forEach(btn=>btn.onclick=ev=>{
        ev.stopPropagation();const id=String(btn.dataset.id||'');
        const row=readBookRows.find(x=>String(x.book?.id)===id);if(!row)return;
-       const answer=prompt('Bu kitap için o gün okuduğun sayfa sayısı:',String(row.pages));
-       if(answer===null)return;
-       const number=Number(answer);
-       if(!Number.isSafeInteger(number)||number<0){alert('Geçerli bir sayfa sayısı gir. Silmek için 0 yazabilirsin.');return;}
-       changeBookPages(id,number);
+       const overlay=document.createElement('div');
+       overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(17,27,43,.57);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;backdrop-filter:blur(3px)';
+       overlay.innerHTML='<section role="dialog" aria-modal="true" aria-label="Okuma kaydını düzenle" style="width:100%;max-width:390px;background:#fffdf8;border-radius:22px;padding:24px 22px;box-shadow:0 22px 65px rgba(0,0,0,.23);box-sizing:border-box;color:#182640">'+
+         '<div style="font-size:10px;letter-spacing:1.8px;text-transform:uppercase;font-weight:800;color:#9a7a3e">OKUMA GÜNLÜĞÜ</div>'+
+         '<h3 style="font-family:Georgia,serif;font-size:24px;line-height:1.15;margin:9px 0 18px;color:#182640">Okuma kaydını düzenle</h3>'+
+         '<div style="display:flex;align-items:center;gap:12px;padding:12px;background:#f6f0e6;border-radius:14px;margin-bottom:20px">'+
+         (row.book?.cover?'<img src="'+esc(String(row.book.cover))+'" alt="" style="width:43px;height:62px;object-fit:cover;border-radius:6px">':'<div style="width:43px;height:62px;background:#e6ddce;border-radius:6px;display:grid;place-items:center">📖</div>')+
+         '<div style="min-width:0"><div style="font-size:14px;font-weight:800;line-height:1.35">'+esc(String(row.book?.title||'Kitap'))+'</div><div style="font-size:11px;color:#857b6b;margin-top:4px">'+esc(label)+'</div></div></div>'+
+         '<label for="readingModernPageInput" style="display:block;font-size:12px;font-weight:800;margin-bottom:8px">Okuduğun sayfa sayısı</label>'+
+         '<div style="display:flex;align-items:center;border:1px solid #d7c8ad;border-radius:12px;background:white;padding:0 14px;gap:8px"><input id="readingModernPageInput" type="number" min="0" inputmode="numeric" value="'+row.pages+'" style="flex:1;min-width:0;border:0;background:transparent;box-shadow:none;font-size:22px;font-weight:800;padding:14px 0;color:#182640"><span style="font-size:12px;color:#81776a">sayfa</span></div>'+
+         '<p id="readingModernError" style="display:none;color:#ae4136;font-size:12px;margin:8px 0 0"></p>'+
+         '<div style="display:flex;gap:10px;margin-top:22px"><button type="button" id="readingModernCancel" style="flex:1;padding:13px 8px;border:1px solid #ded3c2;border-radius:11px;background:#fff;color:#182640;font-size:13px;font-weight:800">Vazgeç</button><button type="button" id="readingModernSave" style="flex:1;padding:13px 8px;border:0;border-radius:11px;background:#182640;color:#fff;font-size:13px;font-weight:800">Kaydet</button></div>'+
+         '</section>';
+       document.body.appendChild(overlay);
+       const close=()=>overlay.remove();
+       overlay.addEventListener('click',event=>{if(event.target===overlay)close()});
+       overlay.querySelector('#readingModernCancel').onclick=close;
+       const input=overlay.querySelector('#readingModernPageInput');
+       overlay.querySelector('#readingModernSave').onclick=()=>{
+         const number=Number(input.value);
+         if(input.value.trim()===''||!Number.isSafeInteger(number)||number<0){
+           const error=overlay.querySelector('#readingModernError');error.textContent='Lütfen geçerli bir sayfa sayısı gir.';error.style.display='block';return;
+         }
+         close();changeBookPages(id,number);
+       };
+       input.addEventListener('keydown',event=>{if(event.key==='Enter')overlay.querySelector('#readingModernSave').click();if(event.key==='Escape')close()});
+       setTimeout(()=>input.focus(),50);
      });
      detail.querySelectorAll('.readingPerBookDelete').forEach(btn=>btn.onclick=ev=>{
        ev.stopPropagation();const id=String(btn.dataset.id||'');
