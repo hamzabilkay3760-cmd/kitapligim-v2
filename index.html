@@ -2396,7 +2396,42 @@ function saveScannedQuote(continueMode=false){
 }
 $('#saveOcrQuote').onclick=()=>saveScannedQuote(false);
 $('#saveContinueQuote').onclick=()=>saveScannedQuote(true)
-$('#exportBtn').onclick=()=>{const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kitapligim-yedek.json';a.click();URL.revokeObjectURL(a.href)};$('#importInput').onchange=async e=>{try{const obj=JSON.parse(await e.target.files[0].text());if(!obj.books||!obj.quotes)throw 0;state=obj;save();alert('Yedek geri yüklendi.');renderLibrary()}catch{alert('Geçersiz yedek dosyası.')}};
+// Versioned, validated local-only backup. No existing library feature is changed.
+const backupKeys=[storeKey,scanPrefsKey,librarySortKey,readingGoalKey,quoteDiscoverySeenKey,readingStreakKey];
+const backupDate=()=>new Date().toISOString().slice(0,10);
+const backupStatus=document.createElement('p');backupStatus.className='muted';backupStatus.setAttribute('role','status');backupStatus.style.marginTop='12px';
+$('#importInput').parentElement.appendChild(backupStatus);
+const showBackupStatus=message=>{backupStatus.textContent=message};
+const validLibrary=obj=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&Array.isArray(obj.books)&&Array.isArray(obj.quotes);
+$('#exportBtn').onclick=()=>{
+ try{
+  const entries={};for(const key of backupKeys){const value=localStorage.getItem(key);if(value!==null)entries[key]=value}
+  const data={format:'kitapligim-backup',version:2,createdAt:new Date().toISOString(),entries};
+  if(!entries[storeKey])data.entries[storeKey]=JSON.stringify(state);
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='kitapligim-yedek-'+backupDate()+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  showBackupStatus('Yedek dosyanız hazır. Dosyayı güvenli bir yerde saklayın.');
+ }catch(err){showBackupStatus('Yedek oluşturulamadı. Tarayıcı depolama alanını kontrol edin.')}
+};
+$('#importInput').onchange=async e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ try{
+  if(file.size>50*1024*1024)throw Error('Yedek dosyası 50 MB sınırını aşıyor.');
+  const parsed=JSON.parse(await file.text());let entries={};
+  if(parsed&&parsed.format==='kitapligim-backup'&&parsed.version===2&&parsed.entries&&typeof parsed.entries==='object'){
+   for(const key of backupKeys){if(Object.prototype.hasOwnProperty.call(parsed.entries,key)){const value=parsed.entries[key];if(typeof value!=='string')throw Error('Yedek biçimi geçersiz.');JSON.parse(value);entries[key]=value}}
+  }else if(validLibrary(parsed)){entries[storeKey]=JSON.stringify(parsed)}
+  else throw Error('Bu dosya geçerli bir Kitaplığım yedeği değil.');
+  if(!entries[storeKey])throw Error('Yedekte kitaplık verisi bulunamadı.');
+  const restored=JSON.parse(entries[storeKey]);if(!validLibrary(restored))throw Error('Kitaplık verileri eksik veya bozuk.');
+  const books=restored.books.length,quotes=restored.quotes.length;
+  if(!confirm('Bu yedek '+books+' kitap ve '+quotes+' alıntı içeriyor. Geri yükleme mevcut kayıtların üzerine yazacak. Önce mevcut verilerinizin yedeğini aldığınızdan emin misiniz?')){showBackupStatus('Geri yükleme iptal edildi; mevcut veriler korunuyor.');return}
+  const previous={};for(const key of Object.keys(entries))previous[key]=localStorage.getItem(key);
+  try{for(const [key,value] of Object.entries(entries))localStorage.setItem(key,value)}
+  catch(err){for(const [key,value] of Object.entries(previous)){try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value)}catch(_){}}throw Error('Depolama hatası nedeniyle geri yükleme tamamlanamadı.')}
+  state=restored;showBackupStatus('Yedek başarıyla geri yüklendi. Sayfa yenileniyor.');location.reload();
+ }catch(err){showBackupStatus(err.message||'Yedek dosyası okunamadı.')}finally{e.target.value=''}
+};
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});renderLibrary();refreshBookSelect();
 </script>
 </body></html>
