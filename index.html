@@ -473,6 +473,7 @@ function renderMonthlyReadingComparison(){
  }catch(e){card.innerHTML='<div class="eyebrow">Okuma istatistikleri</div><p class="muted">Aylık karşılaştırma şu anda görüntülenemiyor.</p>'}
  const journal=$('#readingJournalWeekly');if(journal&&journal.parentNode===view)view.insertBefore(card,journal.nextSibling);else view.insertBefore(card,view.querySelector('.card'));
 }
+let annualArchiveSelectedYear='';
 function renderAnnualSummarySafe(){
  const view=$('#dataView');if(!view)return;
  const old=$('#annualSummarySafe');if(old)old.remove();
@@ -482,7 +483,7 @@ function renderAnnualSummarySafe(){
  try{
    const now=String(new Date().getFullYear());
    const years=[...new Set([now,...state.books.map(b=>String(b.finishedDate||'').slice(0,4)).filter(y=>/^\d{4}$/.test(y))])].sort((a,b)=>Number(b)-Number(a));
-   const year=years[0]||now;
+   const year=years.includes(annualArchiveSelectedYear)?annualArchiveSelectedYear:(years.includes(now)?now:years[0]);
    const books=state.books.filter(b=>(b.status||'')==='Okudum'&&String(b.finishedDate||'').slice(0,4)===year);
    const ids=new Set(books.map(b=>b.id));
    const quotes=state.quotes.filter(q=>ids.has(q.bookId));
@@ -495,18 +496,21 @@ function renderAnnualSummarySafe(){
    const tagCounts={};quotes.forEach(q=>(Array.isArray(q.tags)?q.tags:[]).forEach(t=>{const k=String(t).trim();if(k)tagCounts[k]=(tagCounts[k]||0)+1}));
    const tags=Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-   card.innerHTML='<div class="eyebrow">Yıllık okuma özeti</div><h2 class="serif" style="font-size:30px;margin:6px 0 14px">'+esc(year)+'</h2>'+
+   card.innerHTML='<div class="eyebrow">Yıllık okuma özeti</div><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 14px"><h2 class="serif" style="font-size:30px;margin:0">'+esc(year)+'</h2><select id="annualArchiveYear" aria-label="Okuma arşivi yılı" style="max-width:115px;padding:8px;border:1px solid #d8d2c8;border-radius:10px;background:#fff;color:#182640">'+years.map(y=>'<option value="'+esc(y)+'"'+(y===year?' selected':'')+'>'+esc(y)+'</option>').join('')+'</select></div>'+
    (books.length
     ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
       '<div style="padding:13px;border-radius:14px;background:#f7f1e6"><div class="eyebrow">Bitirdiğim kitap</div><div style="font-family:Georgia,serif;font-size:28px;color:#182640;margin-top:4px">'+books.length+'</div></div>'+
       '<div style="padding:13px;border-radius:14px;background:#f7f1e6"><div class="eyebrow">Toplam sayfa</div><div style="font-family:Georgia,serif;font-size:28px;color:#182640;margin-top:4px">'+pages.toLocaleString('tr-TR')+'</div></div></div>'+
       (most&&(counts[most.id]||0)?'<div style="margin-top:10px;padding:13px;border-radius:14px;background:#fbf7ee"><div class="eyebrow">En çok alıntı aldığım kitap</div><div style="font-family:Georgia,serif;font-size:18px;color:#182640;margin-top:4px">'+esc(String(most.title||''))+'</div><div class="muted" style="font-size:12px;margin-top:3px">'+(counts[most.id]||0)+' alıntı</div></div>':'')+
       (topRated.length?'<div style="margin-top:10px;padding:13px;border-radius:14px;background:#fbf7ee"><div class="eyebrow">En yüksek puan verdiklerim</div><div style="margin-top:6px">'+topRated.map(b=>'<div><span style="color:#b88c33">'+('★'.repeat(Number(b.rating)||0))+'</span> '+esc(String(b.title||''))+'</div>').join('')+'</div></div>':'')+
-      (tags.length?'<div style="margin-top:10px;padding:13px;border-radius:14px;background:#fbf7ee"><div class="eyebrow">Öne çıkan etiketler</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">'+tags.map(([t,c])=>'<span style="font-size:12px;font-weight:800;background:#fff;border:1px solid #dfcfac;border-radius:999px;padding:6px 9px">#'+esc(t)+' · '+c+'</span>').join('')+'</div></div>':'')
+      (tags.length?'<div style="margin-top:10px;padding:13px;border-radius:14px;background:#fbf7ee"><div class="eyebrow">Öne çıkan etiketler</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">'+tags.map(([t,c])=>'<span style="font-size:12px;font-weight:800;background:#fff;border:1px solid #dfcfac;border-radius:999px;padding:6px 9px">#'+esc(t)+' · '+c+'</span>').join('')+'</div></div>':'')+
+      '<div style="margin-top:12px"><div class="eyebrow">Bu yıl bitirdiğim kitaplar</div>'+books.slice().sort((a,b)=>String(b.finishedDate||'').localeCompare(String(a.finishedDate||''))).map(b=>'<div style="padding:10px 0;border-bottom:1px solid #eae5db"><strong>'+esc(String(b.title||''))+'</strong><div class="muted" style="font-size:12px;margin-top:3px">'+(b.finishedDate?esc(String(b.finishedDate)):'Bitirme tarihi belirtilmedi')+'</div></div>').join('')+'</div>'
     : '<div class="empty" style="padding:20px 8px"><p class="muted" style="margin:0">Bu yıl için henüz tamamlanmış kitap yok.</p></div>');
  }catch(e){
    card.innerHTML='<div class="eyebrow">Yıllık okuma özeti</div><p class="muted" style="margin:8px 0 0">Özet hazırlanamadı; diğer veriler etkilenmedi.</p>';
  }
+ const yearPicker=card.querySelector('#annualArchiveYear');
+ if(yearPicker)yearPicker.onchange=()=>{annualArchiveSelectedYear=yearPicker.value;renderAnnualSummarySafe()};
  const backup=view.querySelector('.card');
  if(backup)view.insertBefore(card,backup);else view.appendChild(card);
 }
