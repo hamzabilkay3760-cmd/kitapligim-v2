@@ -1017,13 +1017,22 @@ function renderLibrary(){
         </div>
         <div class="bookLast">${latest?'Son alıntı · '+relativeBookTime(latest):'Henüz alıntı eklenmedi'}</div>
         <div class="bookActions">
+          <button type="button" class="btn secondary quickFavorite" data-id="${esc(String(b.id))}" aria-pressed="${!!b.favorite}" aria-label="${b.favorite?'Favorilerden çıkar':'Favorilere ekle'}" title="${b.favorite?'Favorilerden çıkar':'Favorilere ekle'}" style="min-width:43px;padding:8px 12px;color:${b.favorite?'#946a17':'#64748b'};background:${b.favorite?'#fff3d5':''}">${b.favorite?'★':'☆'}</button>
           ${bq.length?`<button class="btn openMini" data-id="${b.id}">Mini Kitabım</button>`:''}
           <button class="btn secondary openBook" data-id="${b.id}">Detay</button>
         </div>
       </div>
     </div>`;
   }).join(''):`<div class="empty"><h2 class="serif">${state.books.length?'Bu filtrede kitap bulunamadı':'Henüz kitap eklemediniz'}</h2><p class="muted">${state.books.length?'Filtreyi veya aramayı değiştirebilirsiniz.':'İlk kitabınızı ekleyerek başlayın.'}</p></div>`;
-  $$('.openBook').forEach(x=>x.onclick=e=>{e.stopPropagation();renderBook(x.dataset.id)});
+  $('.quickFavorite').forEach(btn=>btn.onclick=e=>{
+    e.stopPropagation();
+    const book=state.books.find(b=>String(b.id)===String(btn.dataset.id));
+    if(!book)return;
+    book.favorite=!book.favorite;
+    save();
+    renderLibrary();
+  });
+  $('.openBook').forEach(x=>x.onclick=e=>{e.stopPropagation();renderBook(x.dataset.id)});
   $$('.openMini').forEach(x=>x.onclick=e=>{e.stopPropagation();renderMini(x.dataset.id)});
   $$('.book').forEach(x=>x.onclick=()=>renderBook(x.dataset.id));
   $$('.filterBtn').forEach(btn=>btn.classList.toggle('activeFilter',btn.dataset.filter===libraryFilter));
