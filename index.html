@@ -1120,7 +1120,18 @@ function renderBookForm(book=null){
     }
     let cover=book?.cover||''; const f=$('#bfCover').files[0]; if(f) cover=await fileToDataURL(f);
     const obj={id:book?.id||uid(),title,author:$('#bfAuthor').value.trim(),publisher:$('#bfPub').value.trim(),year:$('#bfYear').value.trim(),pages:totalRaw,status,finishedDate:autoFinished?localDateKey():($('#bfFinishedDate')?.value||book?.finishedDate||''),finishedPlace:autoFinished?autoFinishedPlace:($('#bfFinishedPlace')?.value.trim()||book?.finishedPlace||''),mainCharacters:$('#bfMainCharacters')?.value.trim()||book?.mainCharacters||'',setting:$('#bfSetting')?.value.trim()||book?.setting||'',mainSubject:$('#bfMainSubject')?.value.trim()||book?.mainSubject||'',themes:$('#bfThemes')?.value.trim()||book?.themes||'',favoriteCharacter:$('#bfFavoriteCharacter')?.value.trim()||book?.favoriteCharacter||'',rating:$('#bfRating')?.value||book?.rating||'',memorySentence:$('#bfMemorySentence')?.value.trim()||book?.memorySentence||'',currentPage:currentRaw||book?.currentPage||'',cover};
+    // Count only newly advanced pages, never the full current-page position.
+    const previousPage=book?Math.max(0,Number(book.currentPage)||0):0;
+    const nextPage=Math.max(0,Number(obj.currentPage)||0);
+    const addedPages=book&&currentRaw&&nextPage>previousPage?nextPage-previousPage:0;
     if(book) Object.assign(book,obj); else state.books.push(obj);
+    if(addedPages){
+      const reading=getReadingStreakData(),today=localDateKey();
+      const entry=reading.days[today]||{};
+      // Preserve existing daily totals; page progress is an additional reading event.
+      reading.days[today]={...entry,bookId:obj.id,pages:Math.max(0,Number(entry.pages)||0)+addedPages,at:Date.now()};
+      saveReadingStreakData(reading);
+    }
     save();
     if(autoFinished)showBookFinishedCelebration(obj.id); else renderBook(obj.id);
   };
