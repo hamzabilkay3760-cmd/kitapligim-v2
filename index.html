@@ -202,7 +202,7 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 #readingJournalWeekly .between .eyebrow{font-size:12px!important;font-weight:850!important;color:#263c55!important}
 #readingJournalWeekly .muted{color:#615f5c!important}
 #readingJournalWeekly>div[style*="grid-template-columns"] .eyebrow{font-size:11px!important;font-weight:800!important;color:#344b64!important}
-\n.librarySearchMark{background:#f4d998;color:#14233b;font-weight:900;border-radius:3px;padding:0 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}\n</style>
+</style>
 </head>
 <body>
 <header>▣ Kitaplığım</header>
@@ -224,7 +224,6 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
           <option value="activity">Son etkinlik</option>
           <option value="added">Son eklenen</option>
           <option value="read">Son okunan</option>
-          <option value="finished">Bitirme tarihi (en yeni)</option>
           <option value="quotes">En çok alıntı</option>
           <option value="rating">En yüksek puan</option>
           <option value="az">A–Z</option>
@@ -930,23 +929,6 @@ function setupReadingStreak(){
    };
  };
 }
-function highlightLibraryMatch(value,query){
- const original=String(value||''),needle=String(query||'').trim();
- if(!needle)return esc(original);
- const folded=original.toLocaleLowerCase('tr-TR'),target=needle.toLocaleLowerCase('tr-TR');
- const at=folded.indexOf(target);if(at<0)return esc(original);
- return esc(original.slice(0,at))+'<mark class="librarySearchMark">'+esc(original.slice(at,at+needle.length))+'</mark>'+esc(original.slice(at+needle.length));
-}
-function libraryMatchedArchive(book,query){
- if(!query)return '';
- const fields=[['Ana karakterler',book.mainCharacters],['En sevdiğim karakter',book.favoriteCharacter],['Ana konu',book.mainSubject],['Temalar',book.themes],['Yer / ortam',book.setting],['Kitabı hatırladığım',book.memorySentence]];
- const match=fields.find(([,value])=>String(value||'').toLocaleLowerCase('tr-TR').includes(query));
- if(!match)return '';
- const value=String(match[1]),pos=value.toLocaleLowerCase('tr-TR').indexOf(query);
- const start=Math.max(0,pos-42),end=Math.min(value.length,pos+query.length+70);
- const excerpt=(start?'…':'')+value.slice(start,end)+(end<value.length?'…':'');
- return '<div class="librarySearchContext" style="font-size:12px;line-height:1.5;margin:8px 0;padding:8px 10px;border-radius:10px;background:#f6efe1;color:#263b55"><strong>'+esc(match[0])+':</strong> '+highlightLibraryMatch(excerpt,query)+'</div>';
-}
 function renderLibrary(){
   const q=$('#searchInput').value.toLocaleLowerCase('tr').trim();
   const enriched=state.books.map(b=>{
@@ -973,14 +955,6 @@ function renderLibrary(){
     books.sort((a,b)=>(indexMap.get(String(b.b.id))??0)-(indexMap.get(String(a.b.id))??0));
   }else if(librarySort==='read'){
     books.sort((a,b)=>(lastReadByBook[String(b.b.id)]||0)-(lastReadByBook[String(a.b.id)]||0)||(b.latest||0)-(a.latest||0));
-  }else if(librarySort==='finished'){
-    const dateValue=item=>{
-      const value=String(item.b.finishedDate||'').trim();
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return 0;
-      const time=new Date(value+'T12:00:00').getTime();
-      return Number.isFinite(time)?time:0;
-    };
-    books.sort((a,b)=>dateValue(b)-dateValue(a)||(b.latest||0)-(a.latest||0));
   }else if(librarySort==='quotes'){
     books.sort((a,b)=>b.bq.length-a.bq.length||(b.latest||0)-(a.latest||0));
   }else if(librarySort==='rating'){
@@ -1006,33 +980,22 @@ function renderLibrary(){
     return `<div class="card book" data-id="${b.id}">
       ${b.cover?`<img class="cover" src="${b.cover}">`:`<div class="cover ph">${esc(b.title)}</div>`}
       <div>
-        <h3>${highlightLibraryMatch(b.title,q)}</h3>
-        <div class="bookAuthor">${highlightLibraryMatch(b.author||'',q)}</div>
-        ${libraryMatchedArchive(b,q)}
+        <h3>${esc(b.title)}</h3>
+        <div class="bookAuthor">${esc(b.author||'')}</div>
         <div class="bookMetaRow">
           <span class="bookMeta"><strong>${bq.length}</strong> alıntı</span>
           ${(b.status||'Okuyorum')==='Okuyorum'&&lastPage?`<span class="bookMeta">Son okunan sayfa: <strong>${esc(lastPage)}</strong></span>`:''}
           <span class="bookMeta">${esc(b.status||'Okuyorum')}</span>
-          ${b.status==='Okudum'&&/^\d{4}-\d{2}-\d{2}$/.test(String(b.finishedDate||''))?`<span class="bookMeta">Bitiş: ${esc(new Date(b.finishedDate+'T12:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'short',year:'numeric'}))}</span>`:''}
         </div>
         <div class="bookLast">${latest?'Son alıntı · '+relativeBookTime(latest):'Henüz alıntı eklenmedi'}</div>
         <div class="bookActions">
-          <button type="button" class="btn secondary quickFavorite" data-id="${esc(String(b.id))}" aria-pressed="${!!b.favorite}" aria-label="${b.favorite?'Favorilerden çıkar':'Favorilere ekle'}" title="${b.favorite?'Favorilerden çıkar':'Favorilere ekle'}" style="min-width:43px;padding:8px 12px;color:${b.favorite?'#946a17':'#64748b'};background:${b.favorite?'#fff3d5':''}">${b.favorite?'★':'☆'}</button>
           ${bq.length?`<button class="btn openMini" data-id="${b.id}">Mini Kitabım</button>`:''}
           <button class="btn secondary openBook" data-id="${b.id}">Detay</button>
         </div>
       </div>
     </div>`;
   }).join(''):`<div class="empty"><h2 class="serif">${state.books.length?'Bu filtrede kitap bulunamadı':'Henüz kitap eklemediniz'}</h2><p class="muted">${state.books.length?'Filtreyi veya aramayı değiştirebilirsiniz.':'İlk kitabınızı ekleyerek başlayın.'}</p></div>`;
-  $('.quickFavorite').forEach(btn=>btn.onclick=e=>{
-    e.stopPropagation();
-    const book=state.books.find(b=>String(b.id)===String(btn.dataset.id));
-    if(!book)return;
-    book.favorite=!book.favorite;
-    save();
-    renderLibrary();
-  });
-  $('.openBook').forEach(x=>x.onclick=e=>{e.stopPropagation();renderBook(x.dataset.id)});
+  $$('.openBook').forEach(x=>x.onclick=e=>{e.stopPropagation();renderBook(x.dataset.id)});
   $$('.openMini').forEach(x=>x.onclick=e=>{e.stopPropagation();renderMini(x.dataset.id)});
   $$('.book').forEach(x=>x.onclick=()=>renderBook(x.dataset.id));
   $$('.filterBtn').forEach(btn=>btn.classList.toggle('activeFilter',btn.dataset.filter===libraryFilter));
