@@ -202,7 +202,7 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 #readingJournalWeekly .between .eyebrow{font-size:12px!important;font-weight:850!important;color:#263c55!important}
 #readingJournalWeekly .muted{color:#615f5c!important}
 #readingJournalWeekly>div[style*="grid-template-columns"] .eyebrow{font-size:11px!important;font-weight:800!important;color:#344b64!important}
-</style>
+\n.librarySearchMark{background:#f4d998;color:#14233b;font-weight:900;border-radius:3px;padding:0 2px;box-decoration-break:clone;-webkit-box-decoration-break:clone}\n</style>
 </head>
 <body>
 <header>▣ Kitaplığım</header>
@@ -929,6 +929,23 @@ function setupReadingStreak(){
    };
  };
 }
+function highlightLibraryMatch(value,query){
+ const original=String(value||''),needle=String(query||'').trim();
+ if(!needle)return esc(original);
+ const folded=original.toLocaleLowerCase('tr-TR'),target=needle.toLocaleLowerCase('tr-TR');
+ const at=folded.indexOf(target);if(at<0)return esc(original);
+ return esc(original.slice(0,at))+'<mark class="librarySearchMark">'+esc(original.slice(at,at+needle.length))+'</mark>'+esc(original.slice(at+needle.length));
+}
+function libraryMatchedArchive(book,query){
+ if(!query)return '';
+ const fields=[['Ana karakterler',book.mainCharacters],['En sevdiğim karakter',book.favoriteCharacter],['Ana konu',book.mainSubject],['Temalar',book.themes],['Yer / ortam',book.setting],['Kitabı hatırladığım',book.memorySentence]];
+ const match=fields.find(([,value])=>String(value||'').toLocaleLowerCase('tr-TR').includes(query));
+ if(!match)return '';
+ const value=String(match[1]),pos=value.toLocaleLowerCase('tr-TR').indexOf(query);
+ const start=Math.max(0,pos-42),end=Math.min(value.length,pos+query.length+70);
+ const excerpt=(start?'…':'')+value.slice(start,end)+(end<value.length?'…':'');
+ return '<div class="librarySearchContext" style="font-size:12px;line-height:1.5;margin:8px 0;padding:8px 10px;border-radius:10px;background:#f6efe1;color:#263b55"><strong>'+esc(match[0])+':</strong> '+highlightLibraryMatch(excerpt,query)+'</div>';
+}
 function renderLibrary(){
   const q=$('#searchInput').value.toLocaleLowerCase('tr').trim();
   const enriched=state.books.map(b=>{
@@ -980,8 +997,9 @@ function renderLibrary(){
     return `<div class="card book" data-id="${b.id}">
       ${b.cover?`<img class="cover" src="${b.cover}">`:`<div class="cover ph">${esc(b.title)}</div>`}
       <div>
-        <h3>${esc(b.title)}</h3>
-        <div class="bookAuthor">${esc(b.author||'')}</div>
+        <h3>${highlightLibraryMatch(b.title,q)}</h3>
+        <div class="bookAuthor">${highlightLibraryMatch(b.author||'',q)}</div>
+        ${libraryMatchedArchive(b,q)}
         <div class="bookMetaRow">
           <span class="bookMeta"><strong>${bq.length}</strong> alıntı</span>
           ${(b.status||'Okuyorum')==='Okuyorum'&&lastPage?`<span class="bookMeta">Son okunan sayfa: <strong>${esc(lastPage)}</strong></span>`:''}
