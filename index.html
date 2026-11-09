@@ -561,6 +561,7 @@ function renderMonthlyReadingCalendarSafe(){
    const monthKeys=Array.from({length:totalDays},(_,i)=>keyFor(i+1));
    const entries=monthKeys.filter(k=>days[k]);
    const totalPages=entries.reduce((n,k)=>n+(Number(days[k]?.pages)||0),0);
+   const calendarBooksFor=entry=>{const ids=Array.isArray(entry?.bookIds)?entry.bookIds:entry?.bookId?[entry.bookId]:[];return [...new Set(ids.map(String))].map(id=>state.books.find(b=>String(b.id)===id)).filter(Boolean);};
    const finishedByDate={};
    state.books.forEach(book=>{
      if((book.status||'')!=='Okudum')return;
@@ -575,6 +576,7 @@ function renderMonthlyReadingCalendarSafe(){
    for(let i=0;i<firstOffset;i++)cells.push('<div></div>');
    for(let d=1;d<=totalDays;d++){
      const key=keyFor(d),entry=days[key],pages=Number(entry?.pages)||0,finished=finishedByDate[key]||[];
+     const dayBooks=[...new Map([...calendarBooksFor(entry),...finished].map(b=>[String(b.id),b])).values()];
      const dt=new Date(year,month,d,12,0,0,0);
      const future=dt>today,isToday=dt.toDateString()===today.toDateString(),selected=readingCalendarSelectedDay===key;
      const hasDateEvent=!!entry||finished.length>0;
@@ -582,10 +584,11 @@ function renderMonthlyReadingCalendarSafe(){
      const color=entry?'#fff':'#182640';
      const border=selected?'2px solid #b88c33':isToday?'1px solid #c9ad72':'1px solid #e7ddca';
      cells.push(
-       '<button type="button" class="readingCalendarDay" data-day="'+key+'" '+(future?'disabled':'')+' style="padding:6px 3px;height:54px;border:'+border+';border-radius:12px;background:'+bg+';color:'+color+';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:none;opacity:'+(future?'.36':'1')+'">'+
+       '<button type="button" class="readingCalendarDay" data-day="'+key+'" '+(future?'disabled':'')+' style="padding:4px 2px;min-height:66px;height:auto;border:'+border+';border-radius:12px;background:'+bg+';color:'+color+';display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:none;opacity:'+(future?'.36':'1')+'">'+
          '<span style="font-size:12px;font-weight:900;line-height:1">'+d+'</span>'+
          (entry?'<span style="font-size:9px;line-height:1;opacity:.9">'+(pages?pages+' s.':'✓')+'</span>':'')+
          (finished.length?'<span style="font-size:8px;line-height:1;font-weight:900;color:'+(entry?'#f3cf78':'#8a651c')+'">Bitti'+(finished.length>1?' · '+finished.length:'')+'</span>':'')+
+         (dayBooks.length?'<span style="display:flex;gap:2px;justify-content:center;height:19px">'+dayBooks.slice(0,3).map(b=>'<span title="'+esc(String(b.title||''))+'" style="display:block;width:13px;height:19px;overflow:hidden;border-radius:3px;background:#eee6d6">'+(b.cover?'<img src="'+esc(String(b.cover))+'" alt="" style="width:100%;height:100%;object-fit:cover">':'📖')+'</span>').join('')+'</span>':'')+
        '</button>'
      );
    }
@@ -615,7 +618,8 @@ function renderMonthlyReadingCalendarSafe(){
      readingCalendarSelectedDay=key;
      [...card.querySelectorAll('.readingCalendarDay')].forEach(x=>x.style.border=x.dataset.day===key?'2px solid #b88c33':(new Date(x.dataset.day+'T12:00:00').toDateString()===today.toDateString()?'1px solid #c9ad72':'1px solid #e7ddca'));
      const entry=days[key]||null;
-     const book=entry?state.books.find(b=>String(b.id)===String(entry.bookId)):null;
+     const booksRead=calendarBooksFor(entry);
+     const book=booksRead[0]||null;
      const finishedBooks=finishedByDate[key]||[];
      const dt=new Date(key+'T12:00:00');
      const label=dt.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -625,7 +629,7 @@ function renderMonthlyReadingCalendarSafe(){
      detail.innerHTML='<div style="padding:12px;border-radius:14px;background:#f8f2e7;border:1px solid #e6d9c0">'+
        '<div class="eyebrow" style="font-size:9px">'+esc(label)+'</div>'+
        (entry
-         ? '<div style="margin-top:6px"><div class="eyebrow" style="font-size:9px">Okuma kaydı</div><div style="font-size:14px;font-weight:800;color:#182640;margin-top:4px">'+esc(book?String(book.title||''):'Kitap kaydı bulunamadı')+'</div><div class="muted" style="font-size:11px;margin-top:3px">'+((Number(entry.pages)||0)?Number(entry.pages)+' sayfa':'Okundu')+'</div></div>'
+         ? '<div style="margin-top:6px"><div class="eyebrow" style="font-size:9px">Okuma kaydı</div><div style="font-size:14px;font-weight:800;color:#182640;margin-top:4px">'+(booksRead.length?booksRead.map(b=>'<span style="display:inline-flex;align-items:center;gap:7px;margin:3px 8px 3px 0">'+(b.cover?'<img src="'+esc(String(b.cover))+'" alt="" style="width:27px;height:39px;object-fit:cover;border-radius:4px">':'')+esc(String(b.title||''))+'</span>').join(''):'Kitap kaydı bulunamadı')+'</div><div class="muted" style="font-size:11px;margin-top:3px">'+((Number(entry.pages)||0)?Number(entry.pages)+' sayfa':'Okundu')+'</div></div>'
          : '<div class="muted" style="font-size:12px;margin-top:5px">Bu gün için sayfa okuma kaydı yok.</div>')+
        finishedHtml+
        '<button id="readingCalendarEdit" type="button" class="btn secondary" style="padding:7px 10px;font-size:11px;margin-top:10px">'+(entry?'Okuma kaydını düzenle':'Bu güne okuma kaydı ekle')+'</button>'+
@@ -683,7 +687,7 @@ function renderMonthlyReadingCalendarSafe(){
          if(!Number.isFinite(pageCount)||pageCount<1)return alert('Lütfen 1 veya daha büyük bir sayfa sayısı girin.');
          const selected=books.find(b=>String(b.id)===String(selectedId));
          if(!selected)return alert('Seçilen kitap artık Kütüphanem’de bulunmuyor.');
-         data.days[key]={bookId:selected.id,pages:pageCount,at:entry?.at||Date.now()};
+         data.days[key]={bookId:selected.id,bookIds:[selected.id],pages:pageCount,at:entry?.at||Date.now()};
          saveReadingStreakData(data);
          readingCalendarSelectedDay=key;
          renderMonthlyReadingCalendarSafe();
@@ -958,7 +962,7 @@ function setupReadingStreak(){
      if(total&&previous+n>total){dialog.querySelector('#streakError').textContent='Bu kayıt kitabın toplam sayfa sayısını aşıyor. Önce kitap ilerlemesini kontrol et.';return;}
      const latest=getReadingStreakData();
      const old=latest.days[today]||{};
-     latest.days[today]={...old,bookId:book.id,pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now()};
+     latest.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(old.bookIds||[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now()};
      book.currentPage=String(previous+n);
      saveReadingStreakData(latest);
      save();
@@ -1135,7 +1139,7 @@ function renderBookForm(book=null){
       const reading=getReadingStreakData(),today=localDateKey();
       const entry=reading.days[today]||{};
       // Preserve existing daily totals; page progress is an additional reading event.
-      reading.days[today]={...entry,bookId:obj.id,pages:Math.max(0,Number(entry.pages)||0)+addedPages,at:Date.now()};
+      reading.days[today]={...entry,bookId:obj.id,bookIds:[...new Set([...(entry.bookIds||[]),entry.bookId,obj.id].filter(Boolean).map(String))],pages:Math.max(0,Number(entry.pages)||0)+addedPages,at:Date.now()};
       saveReadingStreakData(reading);
     }
     save();
