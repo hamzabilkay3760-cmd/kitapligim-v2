@@ -2621,7 +2621,7 @@ const backupDate=()=>new Date().toISOString().slice(0,10);
 const backupStatus=document.createElement('p');backupStatus.className='muted';backupStatus.setAttribute('role','status');backupStatus.style.marginTop='12px';
 $('#importInput').parentElement.appendChild(backupStatus);
 const showBackupStatus=message=>{backupStatus.textContent=message};
-const validLibrary=obj=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&Array.isArray(obj.books)&&Array.isArray(obj.quotes);
+const validLibrary=obj=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&Array.isArray(obj.books)&&Array.isArray(obj.quotes)&&obj.books.every(b=>b&&typeof b==='object'&&!Array.isArray(b)&&b.id!=null)&&obj.quotes.every(q=>q&&typeof q==='object'&&!Array.isArray(q)&&q.id!=null);
 $('#exportBtn').onclick=()=>{
  try{
   const entries={};for(const key of backupKeys){const value=localStorage.getItem(key);if(value!==null)entries[key]=value}
@@ -2635,16 +2635,18 @@ $('#exportBtn').onclick=()=>{
 $('#importInput').onchange=async e=>{
  const file=e.target.files&&e.target.files[0];if(!file)return;
  try{
-  if(file.size>50*1024*1024)throw Error('Yedek dosyası 50 MB sınırını aşıyor.');
+  if(file.size>200*1024*1024)throw Error('Yedek dosyası 200 MB sınırını aşıyor.');
   const parsed=JSON.parse(await file.text());let entries={};
   if(parsed&&parsed.format==='kitapligim-backup'&&parsed.version===2&&parsed.entries&&typeof parsed.entries==='object'){
-   for(const key of backupKeys){if(Object.prototype.hasOwnProperty.call(parsed.entries,key)){const value=parsed.entries[key];if(typeof value!=='string')throw Error('Yedek biçimi geçersiz.');JSON.parse(value);entries[key]=value}}
+   for(const key of backupKeys){if(Object.prototype.hasOwnProperty.call(parsed.entries,key)){const value=parsed.entries[key];if(typeof value!=='string')throw Error('Yedek biçimi geçersiz.');if(key!==librarySortKey)JSON.parse(value);entries[key]=value}}
   }else if(validLibrary(parsed)){entries[storeKey]=JSON.stringify(parsed)}
   else throw Error('Bu dosya geçerli bir Kitaplığım yedeği değil.');
   if(!entries[storeKey])throw Error('Yedekte kitaplık verisi bulunamadı.');
   const restored=JSON.parse(entries[storeKey]);if(!validLibrary(restored))throw Error('Kitaplık verileri eksik veya bozuk.');
+  if(entries[readingStreakKey]){const streak=JSON.parse(entries[readingStreakKey]);if(!streak||typeof streak!=='object'||Array.isArray(streak)||!streak.days||typeof streak.days!=='object'||Array.isArray(streak.days))throw Error('Yedekteki okuma geçmişi geçersiz.');}
+  if(entries[readingGoalKey]){const goals=JSON.parse(entries[readingGoalKey]);if(!goals||typeof goals!=='object'||Array.isArray(goals))throw Error('Yedekteki okuma hedefleri geçersiz.');}
   const books=restored.books.length,quotes=restored.quotes.length;
-  if(!confirm('Bu yedek '+books+' kitap ve '+quotes+' alıntı içeriyor. Geri yükleme mevcut kayıtların üzerine yazacak. Önce mevcut verilerinizin yedeğini aldığınızdan emin misiniz?')){showBackupStatus('Geri yükleme iptal edildi; mevcut veriler korunuyor.');return}
+  if(!confirm('Bu yedek '+books+' kitap ve '+quotes+' alıntı içeriyor. Mevcut kitaplık verileri değiştirilecek. Devam etmeden önce mevcut kitaplığını JSON dışa aktar ile yedeklediğinden emin ol. Geri yüklensin mi?')){showBackupStatus('Geri yükleme iptal edildi; mevcut veriler korunuyor.');return}
   const previous={};for(const key of Object.keys(entries))previous[key]=localStorage.getItem(key);
   try{for(const [key,value] of Object.entries(entries))localStorage.setItem(key,value)}
   catch(err){for(const [key,value] of Object.entries(previous)){try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value)}catch(_){}}throw Error('Depolama hatası nedeniyle geri yükleme tamamlanamadı.')}
