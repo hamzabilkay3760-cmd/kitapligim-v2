@@ -958,12 +958,14 @@ function setupReadingStreak(){
 function libraryHighlightedMatch(book,query){
  if(!query)return '';
  const fields=[['Kitap adı',book.title],['Yazar',book.author],['Karakterler',book.mainCharacters],['Yer / ortam',book.setting],['Konu',book.mainSubject],['Temalar',book.themes],['Sevdiğim karakter',book.favoriteCharacter],['Kitabı hatırladığım',book.memorySentence]];
- const found=fields.find(([,value])=>String(value||'').toLocaleLowerCase('tr-TR').includes(query));
- if(!found)return '';
- const [label,value]=found,raw=String(value);
+ const found=fields.filter(([,value])=>String(value||'').toLocaleLowerCase('tr-TR').includes(query));
+ if(!found.length)return '';
+ return found.map(([label,value])=>{
+ const raw=String(value);
  const at=raw.toLocaleLowerCase('tr-TR').indexOf(query);
  const left=Math.max(0,at-45),right=Math.min(raw.length,at+query.length+70);
  return '<div style="margin:8px 0;padding:8px 10px;background:#fffdf3;border:1px solid #f0e6c8;border-radius:9px;font-size:12px;line-height:1.5;overflow-wrap:anywhere"><span style="color:#7c7465;font-weight:700">'+esc(label)+': </span>'+(left?'…':'')+esc(raw.slice(left,at))+'<mark style="background:#fff0a6;color:#263044;border-radius:3px;padding:1px 2px;font-weight:750">'+esc(raw.slice(at,at+query.length))+'</mark>'+esc(raw.slice(at+query.length,right))+(right<raw.length?'…':'')+'</div>';
+ }).join('');
 }
 function renderLibrary(){
   const q=$('#searchInput').value.toLocaleLowerCase('tr').trim();
