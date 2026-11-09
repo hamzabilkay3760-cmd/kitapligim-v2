@@ -357,7 +357,7 @@ let libraryFilter='Tümü';
 const librarySortKey='kitapligim_library_sort';
 let librarySort=localStorage.getItem(librarySortKey)||'activity';
 function show(id){views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id)); window.scrollTo({top:0,behavior:'smooth'})}
-$$('.navbtn').forEach(b=>b.onclick=()=>{ $$('.navbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); show(b.dataset.view+'View'); if(b.dataset.view==='library') renderLibrary(); if(b.dataset.view==='scan') refreshBookSelect(); if(b.dataset.view==='data'){renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();renderAnnualSummarySafe();renderMonthlyReadingCalendarSafe();}});
+$$('.navbtn').forEach(b=>b.onclick=()=>{ $$('.navbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); show(b.dataset.view+'View'); if(b.dataset.view==='library') renderLibrary(); if(b.dataset.view==='scan') refreshBookSelect(); if(b.dataset.view==='data'){renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();renderAnnualSummarySafe();renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();}});
 function esc(s=''){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':'&quot;',"'":"&#39;"}[m]))}
 function relativeBookTime(ts){
  if(!ts)return '';
@@ -474,6 +474,28 @@ function renderMonthlyReadingComparison(){
  const journal=$('#readingJournalWeekly');if(journal&&journal.parentNode===view)view.insertBefore(card,journal.nextSibling);else view.insertBefore(card,view.querySelector('.card'));
 }
 let annualArchiveSelectedYear='';
+let bookMemorySelectedId='';
+function renderBookMemoryArchive(){
+ const view=$('#dataView');if(!view)return;
+ const previous=$('#bookMemoryArchive');if(previous)previous.remove();
+ const books=state.books.filter(b=>(b.status||'')==='Okudum').slice().sort((a,b)=>String(b.finishedDate||'').localeCompare(String(a.finishedDate||'')));
+ if(!books.length)return;
+ const chosen=books.find(b=>String(b.id)===String(bookMemorySelectedId))||books[0];
+ bookMemorySelectedId=String(chosen.id);
+ const card=document.createElement('div');
+ card.id='bookMemoryArchive';card.className='card section-gap';
+ const fields=[['Ana karakterler',chosen.mainCharacters],['Yer / ortam',chosen.setting],['Ana konu',chosen.mainSubject],['Temalar',chosen.themes],['En sevdiğim karakter',chosen.favoriteCharacter],['Tek cümleyle hatırladığım',chosen.memorySentence]].filter(([,v])=>String(v||'').trim());
+ const favorites=state.quotes.filter(q=>String(q.bookId)===String(chosen.id)&&q.favorite).slice(0,5);
+ card.innerHTML='<div class="eyebrow">Kişisel kitap arşivim</div><h2 class="serif" style="font-size:27px;margin:6px 0 12px">Kitap Hafızam</h2>'+
+ '<label for="bookMemorySelect" style="display:block;font-size:12px;margin-bottom:6px;color:#6a6d73">Hatırlamak istediğin kitap</label>'+
+ '<select id="bookMemorySelect" style="width:100%;padding:11px;border:1px solid #d8d2c8;border-radius:10px;background:#fff;color:#182640">'+books.map(b=>'<option value="'+esc(String(b.id))+'"'+(String(b.id)===bookMemorySelectedId?' selected':'')+'>'+esc(String(b.title||'İsimsiz kitap'))+'</option>').join('')+'</select>'+
+ (fields.length?'<div style="margin-top:13px">'+fields.map(([label,value])=>'<div style="padding:10px 0;border-bottom:1px solid #eee7db"><div class="eyebrow">'+esc(label)+'</div><div style="margin-top:4px;white-space:pre-wrap">'+esc(String(value))+'</div></div>').join('')+'</div>':'<p class="muted" style="margin:13px 0 0">Bu kitap için henüz kişisel arşiv notu eklenmemiş.</p>')+
+ (favorites.length?'<div style="margin-top:14px"><div class="eyebrow">Favori alıntılarım</div>'+favorites.map(q=>'<p style="padding:10px 0;margin:0;border-bottom:1px solid #eee7db;white-space:pre-wrap">'+esc(String(q.text||q.content||''))+'</p>').join('')+'</div>':'');
+ const picker=card.querySelector('#bookMemorySelect');
+ if(picker)picker.onchange=()=>{bookMemorySelectedId=picker.value;renderBookMemoryArchive()};
+ const annual=$('#annualSummarySafe');
+ if(annual&&annual.parentNode===view)annual.insertAdjacentElement('afterend',card);else view.appendChild(card);
+}
 function renderAnnualSummarySafe(){
  const view=$('#dataView');if(!view)return;
  const old=$('#annualSummarySafe');if(old)old.remove();
