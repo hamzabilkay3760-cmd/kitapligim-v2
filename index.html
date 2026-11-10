@@ -859,7 +859,7 @@ function openReadingJourney(year){
   ['OKUMA İZİN',best?best+' gün':'Yolculuğun devam ediyor',best?'Kaydettiğin en uzun ardışık okuma serisi. '+(most&&most.count?'En çok alıntı aldığın kitap: '+String(most.book.title||''):''):'Her okuma günü yeni bir iz bırakır.']
  ];
  const overlay=document.createElement('div');overlay.id='readingJourneyOverlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',year+' okuma yolculuğu');
- overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0e1727;display:flex;align-items:center;justify-content:center;padding:10px;color:white';
+ overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0e1727;display:flex;align-items:center;justify-content:center;padding:10px;color:white;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation';
  overlay.innerHTML='<div style="width:100%;max-width:430px;height:min(790px,94dvh);min-height:360px;border-radius:23px;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#405472,#182640 65%,#101827);box-shadow:0 20px 65px #0006;display:flex;flex-direction:column;padding:22px">'+
  '<div id="journeyProgress" style="display:flex;gap:4px;margin-bottom:20px"></div>'+
  '<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;letter-spacing:.15em;color:#d6b878">KİTAPLIĞIM · '+year+'</span><button type="button" id="journeyClose" aria-label="Kapat" style="border:0;background:#ffffff20;color:white;border-radius:50%;font-size:23px;width:36px;height:36px">×</button></div>'+
@@ -870,6 +870,9 @@ function openReadingJourney(year){
  let index=0,elapsed=0,started=0,timer=null,holding=false,closed=false;
  const duration=5000;
  const stage=overlay.firstElementChild;
+ overlay.addEventListener('contextmenu',event=>event.preventDefault());
+ overlay.addEventListener('selectstart',event=>event.preventDefault());
+ overlay.addEventListener('dragstart',event=>event.preventDefault());
  function stopTimer(){if(timer!==null){clearTimeout(timer);timer=null}}
  function updateBars(){
   const bars=progress.children;
@@ -912,6 +915,7 @@ function openReadingJourney(year){
  let pressStart=0,pressX=0,pressY=0,pressId=null;
  stage.addEventListener('pointerdown',e=>{
   if(e.target.closest('button')||closed)return;
+  if(e.cancelable)e.preventDefault();
   pressStart=Date.now();pressX=e.clientX;pressY=e.clientY;pressId=e.pointerId;
   pause();
  });
