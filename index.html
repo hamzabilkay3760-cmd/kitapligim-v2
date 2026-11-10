@@ -433,7 +433,24 @@ function ctx2d(c,read=false){try{return c.getContext('2d',{colorSpace:'srgb',wil
 const storeKey='kitapligim_v1'; let state=JSON.parse(localStorage.getItem(storeKey)||'{"books":[],"quotes":[]}');
 const scanPrefsKey='kitapligim_scan_prefs'; let scanPrefs=JSON.parse(localStorage.getItem(scanPrefsKey)||'{"bookId":"","lastPage":""}');
 const saveScanPrefs=()=>localStorage.setItem(scanPrefsKey,JSON.stringify(scanPrefs));
-const save=()=>localStorage.setItem(storeKey,JSON.stringify(state)); const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random();
+// Preserve the last successfully saved library if browser storage is full or unavailable.
+let librarySaveFailureShown=false;
+const save=()=>{
+ try{
+  const serialized=JSON.stringify(state);
+  localStorage.setItem(storeKey,serialized);
+  librarySaveFailureShown=false;
+  return true;
+ }catch(error){
+  console.error('Kitaplığım: kitaplık kaydedilemedi',error);
+  if(!librarySaveFailureShown){
+   librarySaveFailureShown=true;
+   alert('Dikkat: Son değişiklik kaydedilemedi. Tarayıcı depolama alanı dolmuş veya kullanılamıyor olabilir. Uygulamayı kapatmadan önce Veriler bölümünden JSON yedeği almayı dene. Sorun çözülene kadar yeni kayıt ekleme.');
+  }
+  return false;
+ }
+};
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random();
 let currentBookId=null, currentImg=null, detectGroups=[], manualRects=[], manualRect=null, manualMode=false, dragStart=null, editState=null;
 let inkStrokes=[], inkMode='pen', activeInkStroke=null, inkColor='mint', inkZoom=1;
 const views=['libraryView','scanView','dataView','bookFormView','bookDetailView','quoteFormView','miniView'];
