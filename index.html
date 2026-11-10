@@ -1536,8 +1536,8 @@ function setupReadingStreak(){
      const total=Math.max(0,Number(book.pages)||0);
      if(total&&previous+n>total){dialog.querySelector('#streakError').textContent='Bu kayıt kitabın toplam sayfa sayısını aşıyor. Önce kitap ilerlemesini kontrol et.';return;}
      const countAgain=shouldCountReadingAgain(book,'streak',n);
+     if(countAgain&&!appendReadingProgress(book,n,'streak'))return;
      book.currentPage=String(previous+n);
-     if(countAgain)appendReadingProgress(book,n,'streak');
      save();
      close();setupReadingStreak();
      if($('#dataView')&&!$('#dataView').classList.contains('hidden')){renderMonthlyReadingCalendarSafe();renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();}
@@ -1709,8 +1709,8 @@ function renderBookForm(book=null){
     const nextPage=Math.max(0,Number(obj.currentPage)||0);
     const addedPages=book&&currentRaw&&nextPage>previousPage?nextPage-previousPage:0;
     const wasFinished=book?.status==='Okudum';
+    if(addedPages&&shouldCountReadingAgain(obj,'book-form',addedPages)&&!appendReadingProgress(obj,addedPages,'book-form'))return;
     if(book) Object.assign(book,obj); else state.books.push(obj);
-    if(addedPages&&shouldCountReadingAgain(obj,'book-form',addedPages))appendReadingProgress(obj,addedPages,'book-form');
     save();
     setupReadingStreak();
     if((autoFinished||!wasFinished&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);
