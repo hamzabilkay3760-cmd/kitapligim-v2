@@ -1,4 +1,4 @@
-name: Kitapligim duplicate reading guard
+name: Kitapligim reading journal clarity
 on:
   push:
     paths:
@@ -11,52 +11,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Protect daily counts from cross-screen duplicates
+      - name: Clarify reading history and averages
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""function appendReadingProgress(book,addedPages){"""
-          new="""function shouldCountReadingAgain(book,source,addedPages){
-           const day=getReadingStreakData().days[localDateKey()];
-           if(!day||!Number.isSafeInteger(Number(addedPages))||Number(addedPages)<=0)return true;
-           const id=String(book.id);
-           const perBook=day.bookPages&&typeof day.bookPages==='object'?day.bookPages:{};
-           const already=Math.max(0,Number(perBook[id])||0);
-           const legacy=String(day.bookId||'')===id?Math.max(0,Number(day.pages)||0):0;
-           if(!already&&!legacy)return true;
-           const sources=day.bookEntrySources&&typeof day.bookEntrySources==='object'?day.bookEntrySources:{};
-           const previous=sources[id];
-           if(previous===source)return true;
-           // Older entries have no source marker; ask rather than silently guessing.
-           return confirm('Bu kitap için bugün zaten '+(already||legacy)+' sayfa okuma kaydı var.\\n\\n'+
-            'Yeni '+addedPages+' sayfa daha okuduysan TAMAM seç; günlük toplama eklensin.\\n'+
-            'Bu ilerleme daha önce kaydedilmiş okumayı gösteriyorsa İPTAL seç; yalnızca kitabın sayfası güncellensin.');
-          }
-          function appendReadingProgress(book,addedPages,source='progress'){"""
+          old="""     const book=state.books.find(b=>String(b.id)===String(x.bookId));
+               const pages=Number(x.pages)||0;
+               return '<div class="readingHistoryRow" '"""
+          new="""     const book=state.books.find(b=>String(b.id)===String(x.bookId));
+               const pages=Number(x.pages)||0;
+               const breakdown=x.bookPages&&typeof x.bookPages==='object'&&!Array.isArray(x.bookPages)&&Object.keys(x.bookPages).length?x.bookPages:(x.bookId?{[String(x.bookId)]:pages}:{});
+               const names=Object.entries(breakdown).filter(([,n])=>Number(n)>0).map(([id,n])=>{
+                 const found=state.books.find(b=>String(b.id)===String(id));
+                 return esc(found?String(found.title||'İsimsiz kitap'):'Silinmiş kitap')+' · '+Number(n)+' sayfa';
+               }).join('<span style="padding:0 4px;color:#a79c89">·</span>');
+               return '<div class="readingHistoryRow" '"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old=""" const bookPages={...existing,[bookId]:Math.max(0,Number(existing[bookId])||0)+n};
-           reading.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(Array.isArray(old.bookIds)?old.bookIds:[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages};"""
-          new=""" const bookPages={...existing,[bookId]:Math.max(0,Number(existing[bookId])||0)+n};
-           const bookEntrySources={...(old.bookEntrySources&&typeof old.bookEntrySources==='object'?old.bookEntrySources:{}),[bookId]:source};
-           reading.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(Array.isArray(old.bookIds)?old.bookIds:[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages,bookEntrySources};"""
+          old="""esc(book?String(book.title||''):'Kitap kaydı bulunamadı')+'</div></div>'+"""
+          new="""(names||esc(book?String(book.title||''):'Kitap kaydı bulunamadı'))+'</div></div>'+"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="""    if(addedPages)appendReadingProgress(obj,addedPages);"""
-          new="""    if(addedPages&&shouldCountReadingAgain(obj,'book-form',addedPages))appendReadingProgress(obj,addedPages,'book-form');"""
+          old="""white-space:nowrap;overflow:hidden;text-overflow:ellipsis"""
+          new="""overflow-wrap:anywhere;line-height:1.5"""
+          assert s.count(old)>=1
+          s=s.replace(old,new,1)
+          old="""'<div class="eyebrow" style="font-size:9px">Günlük ort.</div>'"""
+          new="""'<div class="eyebrow" style="font-size:9px">Okunan gün ort.</div>'"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="""     book.currentPage=String(previous+n);
-               appendReadingProgress(book,n);
-               save();
-               close();setupReadingStreak();"""
-          new="""     const countAgain=shouldCountReadingAgain(book,'streak',n);
-               book.currentPage=String(previous+n);
-               if(countAgain)appendReadingProgress(book,n,'streak');
-               save();
-               close();setupReadingStreak();"""
+          old="""'<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+"""
+          new="""'<div class="muted" style="font-size:11px;line-height:1.45;margin-top:7px">Ortalama, yalnızca okuma yaptığın günlere göre hesaplanır.</div>'+
+               '<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""'<div class="muted" style="font-size:12px">Günde ortalama '+dailyAverageText+' sayfa</div>'"""
+          new="""'<div class="muted" style="font-size:12px">Takvim günü başına '+dailyAverageText+' sayfa</div>'"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""'<div class="muted" style="font-size:12px">Günde ortalama '+avgText(previousAverage)+' sayfa</div>'"""
+          new="""'<div class="muted" style="font-size:12px">Takvim günü başına '+avgText(previousAverage)+' sayfa</div>'"""
           assert s.count(old)==1
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
@@ -67,5 +63,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Guard duplicate reading counts across entry screens"
+          git commit -m "Show all books in reading history and clarify averages"
           git push
