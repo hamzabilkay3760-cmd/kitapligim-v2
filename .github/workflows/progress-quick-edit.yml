@@ -1,4 +1,4 @@
-name: Kitapligim reading consistency fix
+name: Kitapligim duplicate reading guard
 on:
   push:
     paths:
@@ -11,46 +11,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix reading totals and current page
+      - name: Protect daily counts from cross-screen duplicates
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""    const lastPage=lastQuote?.page?String(lastQuote.page):'';"""
-          new="""    const lastPage=(b.status||'Okuyorum')==='Okuyorum'&&Number(b.currentPage)>0?String(b.currentPage):'';"""
+          old="""function appendReadingProgress(book,addedPages){"""
+          new="""function shouldCountReadingAgain(book,source,addedPages){
+           const day=getReadingStreakData().days[localDateKey()];
+           if(!day||!Number.isSafeInteger(Number(addedPages))||Number(addedPages)<=0)return true;
+           const id=String(book.id);
+           const perBook=day.bookPages&&typeof day.bookPages==='object'?day.bookPages:{};
+           const already=Math.max(0,Number(perBook[id])||0);
+           const legacy=String(day.bookId||'')===id?Math.max(0,Number(day.pages)||0):0;
+           if(!already&&!legacy)return true;
+           const sources=day.bookEntrySources&&typeof day.bookEntrySources==='object'?day.bookEntrySources:{};
+           const previous=sources[id];
+           if(previous===source)return true;
+           // Older entries have no source marker; ask rather than silently guessing.
+           return confirm('Bu kitap için bugün zaten '+(already||legacy)+' sayfa okuma kaydı var.\\n\\n'+
+            'Yeni '+addedPages+' sayfa daha okuduysan TAMAM seç; günlük toplama eklensin.\\n'+
+            'Bu ilerleme daha önce kaydedilmiş okumayı gösteriyorsa İPTAL seç; yalnızca kitabın sayfası güncellensin.');
+          }
+          function appendReadingProgress(book,addedPages,source='progress'){"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="""function saveReadingStreakData(d){localStorage.setItem(readingStreakKey,JSON.stringify(d))}"""
-          new="""function saveReadingStreakData(d){localStorage.setItem(readingStreakKey,JSON.stringify(d))}
-          function appendReadingProgress(book,addedPages){
-           const n=Number(addedPages);
-           if(!Number.isSafeInteger(n)||n<=0)return true;
-           const today=localDateKey(),reading=getReadingStreakData(),old=reading.days[today]||{};
-           const existing=old.bookPages&&typeof old.bookPages==='object'&&!Array.isArray(old.bookPages)&&Object.keys(old.bookPages).length
-            ?old.bookPages:(old.bookId?{[String(old.bookId)]:Math.max(0,Number(old.pages)||0)}:{});
-           const bookId=String(book.id);
-           const bookPages={...existing,[bookId]:Math.max(0,Number(existing[bookId])||0)+n};
-           reading.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(Array.isArray(old.bookIds)?old.bookIds:[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages};
-           try{saveReadingStreakData(reading);return true}
-           catch(error){console.error('Kitaplığım: günlük okuma kaydı kaydedilemedi',error);alert('Günlük okuma sayacı kaydedilemedi. Depolama alanını kontrol et.');return false}
-          }"""
+          old=""" const bookPages={...existing,[bookId]:Math.max(0,Number(existing[bookId])||0)+n};
+           reading.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(Array.isArray(old.bookIds)?old.bookIds:[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages};"""
+          new=""" const bookPages={...existing,[bookId]:Math.max(0,Number(existing[bookId])||0)+n};
+           const bookEntrySources={...(old.bookEntrySources&&typeof old.bookEntrySources==='object'?old.bookEntrySources:{}),[bookId]:source};
+           reading.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(Array.isArray(old.bookIds)?old.bookIds:[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages,bookEntrySources};"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          start=s.index('    if(addedPages){',s.index("$('#bfSave').onclick"))
-          end=s.index('    save();',start)
-          old=s[start:end]
-          new="""    if(addedPages)appendReadingProgress(obj,addedPages);
-          """
-          s=s[:start]+new+s[end:]
-          start=s.index('     const latest=getReadingStreakData();',s.index("dialog.querySelector('#streakSave').onclick"))
-          end=s.index('     close();setupReadingStreak();',start)
-          old=s[start:end]
-          new="""     book.currentPage=String(previous+n);
+          old="""    if(addedPages)appendReadingProgress(obj,addedPages);"""
+          new="""    if(addedPages&&shouldCountReadingAgain(obj,'book-form',addedPages))appendReadingProgress(obj,addedPages,'book-form');"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""     book.currentPage=String(previous+n);
                appendReadingProgress(book,n);
                save();
-          """
-          s=s[:start]+new+s[end:]
+               close();setupReadingStreak();"""
+          new="""     const countAgain=shouldCountReadingAgain(book,'streak',n);
+               book.currentPage=String(previous+n);
+               if(countAgain)appendReadingProgress(book,n,'streak');
+               save();
+               close();setupReadingStreak();"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -59,5 +67,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Unify daily reading increments and fix last read page"
+          git commit -m "Guard duplicate reading counts across entry screens"
           git push
