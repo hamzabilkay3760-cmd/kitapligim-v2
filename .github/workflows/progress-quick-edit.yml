@@ -1,4 +1,4 @@
-name: Kitapligim statistics tabs
+name: Kitapligim statistics card polish
 on:
   push:
     paths:
@@ -11,58 +11,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add mobile friendly statistics tabs
+      - name: Polish statistics cards without touching data
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""  <section id="dataView" class="hidden">
-              <div class="eyebrow">Yedekleme</div>"""
-          new="""  <section id="dataView" class="hidden">
-              <div id="readingStatsTabs" class="readingStatsTabs" role="tablist" aria-label="Okuma istatistikleri">
-                <button type="button" data-reading-tab="daily" role="tab" aria-selected="true">Günlük</button>
-                <button type="button" data-reading-tab="monthly" role="tab" aria-selected="false">Aylık</button>
-                <button type="button" data-reading-tab="yearly" role="tab" aria-selected="false">Yıllık</button>
-              </div>
-              <div class="eyebrow">Yedekleme</div>"""
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          old="""<style>#appSmartBack{"""
-          new="""<style>
-          #dataView .readingStatsTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;background:#eae3d5;border:1px solid #ded4c3;border-radius:16px;padding:5px;margin:0 0 16px;position:sticky;top:65px;z-index:10}
-          #dataView .readingStatsTabs button{font-size:13px;min-height:42px;padding:9px 5px;border-radius:12px;background:transparent;color:#555d68;box-shadow:none}
-          #dataView .readingStatsTabs button[aria-selected="true"]{background:#fffdf8;color:#182640;box-shadow:0 2px 8px #18264015}
-          #dataView[data-reading-tab="daily"] #monthlyReadingCalendar,#dataView[data-reading-tab="daily"] #monthlyReadingComparison,#dataView[data-reading-tab="daily"] #annualSummarySafe,#dataView[data-reading-tab="daily"] #bookMemoryArchive{display:none}
-          #dataView[data-reading-tab="monthly"] #readingJournalWeekly,#dataView[data-reading-tab="monthly"] #annualSummarySafe,#dataView[data-reading-tab="monthly"] #bookMemoryArchive{display:none}
-          #dataView[data-reading-tab="yearly"] #readingJournalWeekly,#dataView[data-reading-tab="yearly"] #monthlyReadingCalendar,#dataView[data-reading-tab="yearly"] #monthlyReadingComparison{display:none}
-          #dataView .readingStatsTabs~.eyebrow{margin-top:22px}
-          </style>
-          <style>#appSmartBack{"""
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          old="""function esc(s=''){return s.replace("""
-          new="""function setupReadingStatsTabs(){
-           const view=$('#dataView'),tabs=$('#readingStatsTabs');if(!view||!tabs)return;
-           const selected=['daily','monthly','yearly'].includes(view.dataset.readingTab)?view.dataset.readingTab:'daily';
-           view.dataset.readingTab=selected;
-           tabs.querySelectorAll('[data-reading-tab]').forEach(button=>{
-            const active=button.dataset.readingTab===selected;
-            button.setAttribute('aria-selected',String(active));
-            button.tabIndex=active?0:-1;
-            button.onclick=()=>{
-             view.dataset.readingTab=button.dataset.readingTab;
-             setupReadingStatsTabs();
-            };
-           });
-          }
-          function esc(s=''){return s.replace("""
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          old="""renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();}});"""
-          new="""renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();setupReadingStatsTabs();}});"""
-          assert s.count(old)==1
-          s=s.replace(old,new)
+          anchor='#dataView .readingStatsTabs~.eyebrow{margin-top:22px}'
+          assert s.count(anchor)==1
+          extra="""
+          #dataView #readingJournalWeekly,#dataView #monthlyReadingComparison,#dataView #monthlyReadingCalendar,#dataView #annualSummarySafe,#dataView #bookMemoryArchive{border:1px solid #e6dccb;border-radius:22px;box-shadow:0 4px 20px rgba(24,38,64,.045);padding:clamp(15px,3.5vw,22px);overflow:hidden}
+          #dataView #readingJournalWeekly .eyebrow,#dataView #monthlyReadingComparison .eyebrow,#dataView #monthlyReadingCalendar .eyebrow,#dataView #annualSummarySafe .eyebrow,#dataView #bookMemoryArchive .eyebrow{letter-spacing:.12em}
+          #dataView #readingJournalWeekly .serif,#dataView #monthlyReadingComparison .serif,#dataView #monthlyReadingCalendar .serif,#dataView #annualSummarySafe .serif,#dataView #bookMemoryArchive .serif{letter-spacing:-.025em;line-height:1.15}
+          #dataView #readingJournalWeekly .readingHistoryRow{align-items:flex-start!important;gap:10px!important}
+          #dataView #readingJournalWeekly .readingHistoryRow>div:first-child{flex:1;min-width:0}
+          #dataView #readingJournalWeekly .readingHistoryRow>div:last-child{flex-shrink:0;font-variant-numeric:tabular-nums}
+          #dataView #monthlyReadingCalendar .readingCalendarDay{transition:border-color .15s,background-color .15s;min-width:0}
+          #dataView #monthlyReadingComparison .card,#dataView #annualSummarySafe .card{box-shadow:none}
+          @media(max-width:420px){#dataView #readingJournalWeekly,#dataView #monthlyReadingComparison,#dataView #monthlyReadingCalendar,#dataView #annualSummarySafe,#dataView #bookMemoryArchive{padding:15px;border-radius:19px}#dataView #readingJournalWeekly .serif,#dataView #monthlyReadingComparison .serif,#dataView #monthlyReadingCalendar .serif,#dataView #annualSummarySafe .serif{font-size:clamp(22px,6.2vw,28px)!important}#dataView #readingJournalWeekly .readingHistoryRow{flex-wrap:wrap}}
+          """
+          s=s.replace(anchor,anchor+'\\n'+extra)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -71,5 +39,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Add simple daily monthly yearly statistics tabs"
+          git commit -m "Polish statistics cards for mobile"
           git push
