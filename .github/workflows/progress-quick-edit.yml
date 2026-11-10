@@ -1,4 +1,4 @@
-name: Diagnose journey error
+name: Fix journey year scope
 on:
   push:
     paths:
@@ -11,27 +11,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Expose journey error details
+      - name: Fix annual story year scope
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""  catch(error){console.error('Okuma Yolculuğum açılış hatası:',error);alert('Okuma Yolculuğu açılamadı. Lütfen sayfayı yenileyip tekrar dene.')}"""
-          new="""  catch(error){
-             console.error('Okuma Yolculuğum açılış hatası:',error);
-             const detail=error&&error.message?String(error.message):'Bilinmeyen hata';
-             alert('Okuma Yolculuğu açılamadı. Hata ayrıntısı: '+detail);
-            }"""
+          old=""" if(journey)journey.addEventListener('click',event=>{
+            event.preventDefault();event.stopPropagation();
+            try{openReadingJourney(year)}"""
+          new=""" if(journey)journey.addEventListener('click',event=>{
+            event.preventDefault();event.stopPropagation();
+            const selectedYear=yearPicker?yearPicker.value:String(new Date().getFullYear());
+            try{openReadingJourney(selectedYear)}"""
           assert s.count(old)==1
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          Path('/tmp/kitapligim-check.js').write_text(s.rsplit('<script>',1)[-1].split('</script>',1)[0],encoding='utf-8')
+          PY
+          node --check /tmp/kitapligim-check.js
       - name: Commit
         run: |
           if git diff --quiet -- index.html; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Show reading journey error detail"
+          git commit -m "Fix reading journey year scope"
           git push
