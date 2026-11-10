@@ -2704,22 +2704,15 @@ $('#extractInkBtn').onclick=async()=>{
  const btn=$('#extractInkBtn'),old=btn.textContent;
  try{
    btn.disabled=true;btn.textContent='Alıntı çıkarılıyor…';
-   setStatus('Sayfa bir kez okunuyor; fosforladığınız kelimeler seçiliyor…','warn');
-   const image=$('#photoCanvas').toDataURL('image/jpeg',0.94);
-   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),35000);
-   const resp=await fetch('/api/ocr',{method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({image,mode:'digitalMap',regions}),signal:controller.signal});
-   clearTimeout(timer);
-   const data=await resp.json();
-   if(!resp.ok)throw new Error(data.error||'Alıntı çıkarılamadı.');
-   const text=cleanText(data.text||'');
+   const text=cleanText(await ocrHighlightedRegions(regions));
    if(!text)throw new Error('İşaretlenen bölümden metin seçilemedi.');
    $('#ocrPanel').classList.remove('hidden');refreshBookSelect();
    $('#ocrText').value=text;
-   setStatus('Fosforladığınız kelimeler sayfa metninden seçildi. Kontrol edip kaydedebilirsiniz.','ok');
+   setStatus('İşaretlediğiniz kelimeler seçildi. Kontrol edip kaydedebilirsiniz.','ok');
    $('#ocrPanel').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){
-   const msg=e&&e.name==='AbortError'?'Okuma zaman aşımına uğradı.':(e.message||'OCR hatası');
+   console.error(e);
+   const msg=e&&e.message?e.message:'OCR hatası';
    setStatus(msg,'danger');alert(msg);
  }finally{btn.disabled=false;btn.textContent=old}
 };
@@ -2873,16 +2866,61 @@ function cropHighlightedGroup(g){
 }
 function lightlyEnhanceForOCR(canvas){const out=document.createElement('canvas');out.width=canvas.width;out.height=canvas.height;const ctx=ctx2d(out,true);ctx.drawImage(canvas,0,0);const img=ctx.getImageData(0,0,out.width,out.height),d=img.data;for(let i=0;i<d.length;i+=4){const y=.299*d[i]+.587*d[i+1]+.114*d[i+2];const v=Math.max(0,Math.min(255,(y-110)*1.35+135));d[i]=d[i+1]=d[i+2]=v}ctx.putImageData(img,0,0);return out}
 function cleanText(s){return s.replace(/-\s*\n\s*/g,'').replace(/\n+/g,' ').replace(/\s{2,}/g,' ').replace(/^[|¦]\s*/,'').replace(/\s*[|¦]$/,'').trim()}
+let ocrLibraryPromise=null,ocrWorkerPromise=null;
+function loadTesseractLibrary(){
+ if(globalThis.Tesseract)return Promise.resolve(globalThis.Tesseract);
+ if(ocrLibraryPromise)return ocrLibraryPromise;
+ ocrLibraryPromise=new Promise((resolve,reject)=>{
+   const existing=document.querySelector('script[data-kitapligim-ocr]');
+   const finish=()=>globalThis.Tesseract?resolve(globalThis.Tesseract):reject(new Error('OCR motoru başlatılamadı.'));
+   if(existing){
+     existing.addEventListener('load',finish,{once:true});
+     existing.addEventListener('error',()=>reject(new Error('OCR motoru yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.')),{once:true});
+     return;
+   }
+   const script=document.createElement('script');
+   script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+   script.async=true;script.dataset.kitapligimOcr='1';
+   script.onload=finish;
+   script.onerror=()=>{ocrLibraryPromise=null;reject(new Error('OCR motoru yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.'))};
+   document.head.appendChild(script);
+ });
+ return ocrLibraryPromise;
+}
+async function getOcrWorker(){
+ const T=await loadTesseractLibrary();
+ if(!ocrWorkerPromise){
+   setStatus('Türkçe OCR motoru hazırlanıyor…','warn');
+   ocrWorkerPromise=T.createWorker('tur',1,{
+     logger:m=>{
+       if(m&&m.status==='recognizing text'){
+         setStatus('Metin okunuyor… %'+Math.round((m.progress||0)*100),'warn');
+       }
+     }
+   }).catch(err=>{ocrWorkerPromise=null;throw err});
+ }
+ return ocrWorkerPromise;
+}
+async function recognizeCanvasData(canvas,psm='6',formats={}){
+ const worker=await getOcrWorker();
+ try{
+   await worker.setParameters({tessedit_pageseg_mode:String(psm),preserve_interword_spaces:'1'});
+   const result=await worker.recognize(canvas,{},formats);
+   return result&&result.data?result.data:{};
+ }catch(err){
+   try{await worker.terminate()}catch(_){}
+   ocrWorkerPromise=null;
+   throw err;
+ }
+}
 async function ocrCanvas(canvas){
- if(typeof Tesseract==='undefined') throw new Error('Tesseract yüklenemedi');
- const opts={logger:m=>{if(m.status==='recognizing text')setStatus(`Metin okunuyor… %${Math.round((m.progress||0)*100)}`)},tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'};
- let r=await Tesseract.recognize(canvas,'tur',opts);
- let txt=cleanText(r?.data?.text||'');
+ let data=await recognizeCanvasData(canvas,'6');
+ let txt=cleanText(data.text||'');
  if(txt.length<3){
    setStatus('İlk okuma zayıf kaldı, ikinci yöntem deneniyor…','warn');
    const enhanced=lightlyEnhanceForOCR(canvas);
-   r=await Tesseract.recognize(enhanced,'tur',{...opts,tessedit_pageseg_mode:'3'});
-   txt=cleanText(r?.data?.text||'');
+   data=await recognizeCanvasData(enhanced,'3');
+   txt=cleanText(data.text||'');
  }
  return txt
 }
@@ -2961,6 +2999,36 @@ function wordsToHighlightedText(words,groups){
  }
  return cleanText(out);
 }
+async function ocrHighlightedRegions(regions){
+ const src=$('#photoCanvas');
+ const maxDim=1800;
+ const scale=Math.min(1,maxDim/Math.max(src.width,src.height));
+ let work=src;
+ if(scale<.999){
+   work=document.createElement('canvas');
+   work.width=Math.max(1,Math.round(src.width*scale));
+   work.height=Math.max(1,Math.round(src.height*scale));
+   const wctx=ctx2d(work,true);
+   wctx.fillStyle='white';wctx.fillRect(0,0,work.width,work.height);
+   wctx.imageSmoothingEnabled=true;wctx.imageSmoothingQuality='high';
+   wctx.drawImage(src,0,0,work.width,work.height);
+ }
+ const mapped=regions.map(r=>({x1:r.x1*scale,x2:r.x2*scale,y1:r.y1*scale,y2:r.y2*scale}));
+ setStatus('Sayfa okunuyor; yalnızca işaretlediğiniz kelimeler seçiliyor…','warn');
+ let data={};
+ try{data=await recognizeCanvasData(work,'3',{tsv:true})}catch(err){console.warn('Tam sayfa OCR başarısız, alan okumasına geçiliyor',err)}
+ const words=wordsFromTSV(data.tsv||'');
+ const selected=words.length?wordsToHighlightedText(words,mapped):'';
+ if(selected)return selected;
+
+ setStatus('İşaretlenen alanlar tek tek okunuyor…','warn');
+ const parts=[];
+ for(const region of regions){
+   const t=await ocrCanvas(cropExactRect(region));
+   if(t)parts.push(t);
+ }
+ return cleanText(parts.join(' '));
+}
 function buildSegmentComposite(g){
  const src=$('#photoCanvas');
  const segs=(g.segments&&g.segments.length)?[...g.segments].sort((a,b)=>a.y1-b.y1||a.x1-b.x1):[g];
@@ -3032,25 +3100,13 @@ function cropExactRect(rect){
 }
 
 async function rapidOcrBatch(canvases){
- const batch=canvases.map(c=>({image:c.toDataURL('image/jpeg',0.96),mode:'clean'}));
- const resp=await fetch('/api/ocr',{
-   method:'POST',
-   headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({batch})
- });
- const data=await resp.json();
- if(!resp.ok)throw new Error(data.error||'OCR sunucu hatası');
- return (data.texts||[]).map(t=>cleanText(t||''));
+ const out=[];
+ for(const canvas of canvases)out.push(cleanText(await ocrCanvas(canvas)));
+ return out;
 }
-
 async function rapidOcrManual(canvas){
- const image=canvas.toDataURL('image/jpeg',0.94);
- const resp=await fetch('/api/ocr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image,mode:'manual'})});
- const data=await resp.json();
- if(!resp.ok)throw new Error(data.error||'OCR sunucu hatası');
- return cleanText(data.text||'');
+ return cleanText(await ocrCanvas(canvas));
 }
-
 
 async function readWholePage(){
  if(!currentImg)return setStatus('Önce bir fotoğraf seçin.','warn');
@@ -3058,27 +3114,15 @@ async function readWholePage(){
  try{
    btn.disabled=true;btn.textContent='Sayfa okunuyor…';
    setStatus('Sayfanın tamamı metne çevriliyor…','warn');
-   const canvas=$('#photoCanvas');
-   const image=canvas.toDataURL('image/jpeg',0.94);
-   const controller=new AbortController();
-   const timer=setTimeout(()=>controller.abort(),30000);
-   const resp=await fetch('/api/ocr',{
-     method:'POST',
-     headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({image,mode:'fullpage'}),
-     signal:controller.signal
-   });
-   clearTimeout(timer);
-   const data=await resp.json();
-   if(!resp.ok)throw new Error(data.error||'Sayfa OCR hatası');
-   const text=cleanText(data.text||'');
-   if(!text)throw new Error('Bu sayfadan metin çıkarılamadı.');
-   $('#pageText').value=text;
+   const text=cleanText(await ocrCanvas($('#photoCanvas')));
+   if(!text)throw new Error('Sayfa metni okunamadı.');
    $('#pageTextPanel').classList.remove('hidden');
-   setStatus('Sayfa hazır. Şimdi metin içinden istediğiniz cümleyi seçin.','ok');
+   $('#pageText').value=text;
+   setStatus('Sayfa metni hazır. İstediğiniz cümleyi seçebilirsiniz.','ok');
    $('#pageTextPanel').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){
-   const msg=e&&e.name==='AbortError'?'Sayfa okuma zaman aşımına uğradı. Tekrar deneyin.':(e.message||'Sayfa okunamadı.');
+   console.error(e);
+   const msg=e&&e.message?e.message:'Sayfa okunamadı.';
    setStatus(msg,'danger');alert(msg);
  }finally{
    btn.disabled=false;btn.textContent=old;
