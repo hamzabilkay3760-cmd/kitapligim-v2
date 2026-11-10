@@ -831,6 +831,63 @@ function renderBookMemoryArchive(){
  const annual=$('#annualSummarySafe');
  if(annual&&annual.parentNode===view)annual.insertAdjacentElement('afterend',card);else view.appendChild(card);
 }
+function openReadingJourney(year){
+ const previous=document.getElementById('readingJourneyOverlay');if(previous)previous.remove();
+ const days=getReadingStreakData().days||{};
+ const books=state.books.filter(b=>b.status==='Okudum'&&String(b.finishedDate||'').slice(0,4)===year);
+ const quotes=state.quotes.filter(q=>books.some(b=>String(b.id)===String(q.bookId)));
+ const keys=Object.keys(days).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&k.slice(0,4)===year&&Number(days[k]?.pages)>0).sort();
+ const total=keys.reduce((n,k)=>n+Number(days[k].pages),0),monthly=Array(12).fill(0);
+ keys.forEach(k=>monthly[Number(k.slice(5,7))-1]+=Number(days[k].pages));
+ const months=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+ const peak=Math.max(...monthly)>0?monthly.indexOf(Math.max(...monthly)):-1;
+ const longest=books.slice().sort((a,b)=>Number(b.pages||0)-Number(a.pages||0))[0];
+ const first=books.slice().sort((a,b)=>String(a.finishedDate||'').localeCompare(String(b.finishedDate||'')))[0];
+ const favorite=quotes.find(q=>(q.favorite||q.isFavorite||q.favorited)&&String(q.text||q.content||'').trim());
+ const favoriteBook=favorite&&state.books.find(b=>String(b.id)===String(favorite.bookId));
+ const most=books.map(b=>({book:b,count:quotes.filter(q=>String(q.bookId)===String(b.id)).length})).sort((a,b)=>b.count-a.count)[0];
+ let run=0,best=0,last=null;
+ keys.forEach(k=>{const d=new Date(k+'T12:00:00');run=last&&Math.round((d-last)/86400000)===1?run+1:1;best=Math.max(best,run);last=d});
+ const num=n=>Number(n||0).toLocaleString('tr-TR');
+ const slides=[
+  ['YILIN HİKÂYESİ',year+' okuma yolculuğun',books.length+' kitap bitirdin. Bu yılın sayfalarını birlikte hatırlayalım.'],
+  ['OKUMA GÜNLÜĞÜN',num(total)+' sayfa',keys.length+' farklı günde okuma kaydettin.'],
+  ['EN UZUN KİTABIN',longest?String(longest.title||'İsimsiz kitap'):'Henüz kitap yok',longest?num(longest.pages)+' sayfa · Bu yıl bitirdiğin en uzun kitap':'Bitirdiğin kitapları burada göreceksin.'],
+  ['EN ÇOK OKUDUĞUN AY',peak>=0?months[peak]:'Henüz kayıt yok',peak>=0?num(monthly[peak])+' sayfa okudun.':'Günlük kayıtların bu hikâyeyi oluşturacak.'],
+  ['İLK BİTİRDİĞİN',first?String(first.title||'İsimsiz kitap'):'Henüz kitap yok',first?'Bitirme tarihi: '+first.finishedDate:'Kitaplarını bitirdiğinde tarihlerini kaydet.'],
+  ['FAVORİ ALINTIN',favorite?String(favorite.text||favorite.content||'').slice(0,240):'Henüz favori alıntın yok',favorite?(favoriteBook?String(favoriteBook.title||''):'Kitaplığındaki alıntı'):'Sevdiğin bir alıntıyı favorilere ekleyebilirsin.'],
+  ['OKUMA İZİN',best?best+' gün':'Yolculuğun devam ediyor',best?'Kaydettiğin en uzun ardışık okuma serisi. '+(most&&most.count?'En çok alıntı aldığın kitap: '+String(most.book.title||''):''):'Her okuma günü yeni bir iz bırakır.']
+ ];
+ const overlay=document.createElement('div');overlay.id='readingJourneyOverlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',year+' okuma yolculuğu');
+ overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0e1727;display:flex;align-items:center;justify-content:center;padding:10px;color:white';
+ overlay.innerHTML='<div style="width:100%;max-width:430px;height:min(790px,94dvh);min-height:360px;border-radius:23px;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#405472,#182640 65%,#101827);box-shadow:0 20px 65px #0006;display:flex;flex-direction:column;padding:22px">'+
+ '<div id="journeyProgress" style="display:flex;gap:4px;margin-bottom:20px"></div>'+
+ '<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;letter-spacing:.15em;color:#d6b878">KİTAPLIĞIM · '+year+'</span><button type="button" id="journeyClose" aria-label="Kapat" style="border:0;background:#ffffff20;color:white;border-radius:50%;font-size:23px;width:36px;height:36px">×</button></div>'+
+ '<div id="journeyBody" aria-live="polite" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;overflow:auto;padding:20px 4px"></div>'+
+ '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><button type="button" id="journeyPrev" style="background:#ffffff19;border:1px solid #ffffff40;border-radius:12px;color:white;padding:12px">← Geri</button><span id="journeyCounter" style="font-size:12px;color:#d7c9b0"></span><button type="button" id="journeyNext" style="background:#d6b878;border:0;border-radius:12px;color:#182640;font-weight:800;padding:12px">İleri →</button></div></div>';
+ document.body.appendChild(overlay);
+ const body=overlay.querySelector('#journeyBody'),progress=overlay.querySelector('#journeyProgress'),focus=document.activeElement;
+ let index=0,touchX=null;
+ function close(){document.removeEventListener('keydown',onKey);overlay.remove();if(focus&&focus.isConnected)focus.focus()}
+ function draw(){const slide=slides[index];
+  progress.innerHTML=slides.map((_,i)=>'<span style="height:3px;flex:1;border-radius:8px;background:'+(i<=index?'#d6b878':'#ffffff38')+'"></span>').join('');
+  body.innerHTML='<div style="font-size:11px;letter-spacing:.18em;color:#d6b878;font-weight:800">'+esc(slide[0])+'</div>'+
+   '<div style="font:clamp(30px,8vw,44px)/1.2 Georgia,serif;overflow-wrap:anywhere;max-width:100%">'+esc(slide[1])+'</div>'+
+   '<div style="font-size:15px;line-height:1.6;color:#e2ded7;max-width:310px;overflow-wrap:anywhere">'+esc(slide[2])+'</div>';
+  overlay.querySelector('#journeyCounter').textContent=(index+1)+' / 7';
+  overlay.querySelector('#journeyPrev').disabled=index===0;
+  overlay.querySelector('#journeyPrev').style.opacity=index===0?'.35':'1';
+  overlay.querySelector('#journeyNext').textContent=index===6?'Bitir ✓':'İleri →';
+  if(body.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)body.animate([{opacity:.35,transform:'translateY(10px) scale(.98)'},{opacity:1,transform:'none'}],{duration:260,easing:'ease-out'});
+ }
+ function next(){if(index===6)close();else{index++;draw()}}
+ function back(){if(index>0){index--;draw()}}
+ function onKey(e){if(e.key==='Escape')close();else if(e.key==='ArrowRight')next();else if(e.key==='ArrowLeft')back()}
+ overlay.querySelector('#journeyClose').onclick=close;overlay.querySelector('#journeyNext').onclick=next;overlay.querySelector('#journeyPrev').onclick=back;
+ overlay.addEventListener('touchstart',e=>{touchX=e.changedTouches[0].clientX},{passive:true});
+ overlay.addEventListener('touchend',e=>{if(touchX===null)return;const dx=e.changedTouches[0].clientX-touchX;touchX=null;if(Math.abs(dx)>55)(dx<0?next:back)()},{passive:true});
+ document.addEventListener('keydown',onKey);draw();overlay.querySelector('#journeyClose').focus();
+}
 function renderAnnualSummarySafe(){
  const view=$('#dataView');if(!view)return;
  const old=$('#annualSummarySafe');if(old)old.remove();
@@ -868,17 +925,6 @@ function renderAnnualSummarySafe(){
       '<span style="font-size:9px;color:#70695d;white-space:nowrap">'+monthNames[i]+'</span></div>';
     }).join('')+'</div>'+
     '<div class="muted" style="font-size:11px;margin-top:12px">'+(peakMonth>=0?'En çok okunan ay: '+monthNames[peakMonth]+' · '+maxMonthly.toLocaleString('tr-TR')+' sayfa':'Bu yıl henüz günlük okuma kaydı bulunmuyor.')+'</div></section>';
-   const goalValue=Number(getReadingGoals()[year]);
-   const goal=Number.isSafeInteger(goalValue)&&goalValue>0?goalValue:0;
-   const goalPercent=goal?Math.min(100,Math.round(books.length/goal*100)):0;
-   const goalRemaining=Math.max(0,goal-books.length);
-   const goalCard='<section aria-label="Yıllık kitap hedefi" style="margin:12px 0;padding:14px;background:#fbf7ef;border:1px solid #e9dfcd;border-radius:16px">'+
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div class="eyebrow" style="font-size:10px">Yıllık kitap hedefim</div>'+
-    '<strong style="font-size:13px;color:#182640">'+(goal?books.length+' / '+goal+' kitap':'Hedef belirlenmedi')+'</strong></div>'+
-    (goal?'<div role="progressbar" aria-label="Yıllık kitap hedefi ilerlemesi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+goalPercent+'" style="height:9px;border-radius:99px;background:#e6ddce;overflow:hidden;margin:11px 0 8px"><div style="height:100%;width:'+goalPercent+'%;border-radius:99px;background:#a98a4a"></div></div>'+
-    '<div class="muted" style="font-size:12px">'+(goalRemaining?'Hedefe '+goalRemaining+' kitap kaldı.':'Tebrikler, yıllık kitap hedefini tamamladın!')+'</div>':
-    '<div class="muted" style="font-size:12px;line-height:1.5;margin-top:9px">Kütüphanem ekranındaki yıllık okuma hedefinden kitap sayısı belirleyebilirsin.</div>')+
-    '</section>';
    const ids=new Set(books.map(b=>b.id));
    const quotes=state.quotes.filter(q=>ids.has(q.bookId));
    const pages=books.reduce((n,b)=>n+(Number(b.pages)||0),0);
@@ -891,7 +937,7 @@ function renderAnnualSummarySafe(){
    const tags=Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
    card.innerHTML='<div class="eyebrow">Yıllık okuma özeti</div><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 14px"><h2 class="serif" style="font-size:30px;margin:0">'+esc(year)+'</h2><select id="annualArchiveYear" aria-label="Okuma arşivi yılı" style="max-width:115px;padding:8px;border:1px solid #d8d2c8;border-radius:10px;background:#fff;color:#182640">'+years.map(y=>'<option value="'+esc(y)+'"'+(y===year?' selected':'')+'>'+esc(y)+'</option>').join('')+'</select></div>'+
-   monthlyChart+goalCard+
+   monthlyChart+'<button type="button" id="readingJourneyOpen" style="display:block;width:100%;padding:17px;margin:12px 0 15px;border:1px solid #cbb78e;border-radius:16px;background:linear-gradient(125deg,#182640,#30445f);color:#fff;text-align:left;cursor:pointer"><span style="font-size:10px;letter-spacing:.15em;color:#e3c993">YILIN HİKÂYESİ</span><span style="display:block;font:26px Georgia,serif;margin:6px 0">Okuma Yolculuğum ✦</span><span style="font-size:12px;color:#e6e0d6">7 hikâyede '+esc(year)+' yılına dönüp bak →</span></button>'+
    (books.length
     ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
       '<div style="padding:13px;border-radius:14px;background:#f7f1e6"><div class="eyebrow">Bitirdiğim kitap</div><div style="font-family:Georgia,serif;font-size:28px;color:#182640;margin-top:4px">'+books.length+'</div></div>'+
@@ -906,6 +952,7 @@ function renderAnnualSummarySafe(){
  }
  const yearPicker=card.querySelector('#annualArchiveYear');
  if(yearPicker)yearPicker.onchange=()=>{annualArchiveSelectedYear=yearPicker.value;renderAnnualSummarySafe()};
+ const journey=card.querySelector('#readingJourneyOpen');if(journey)journey.onclick=()=>openReadingJourney(year);
  const backup=view.querySelector('.card');
  if(backup)view.insertBefore(card,backup);else view.appendChild(card);
 }
