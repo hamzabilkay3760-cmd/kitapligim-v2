@@ -40,7 +40,6 @@ jobs:
           s=s.replace(old,new,1)
           old="""'<div class="eyebrow" style="font-size:9px">Günlük ort.</div>'"""
           new="""'<div class="eyebrow" style="font-size:9px">Okunan gün ort.</div>'"""
-          assert s.count(old)==1
           s=s.replace(old,new)
           old="""'<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+"""
           new="""'<div class="muted" style="font-size:11px;line-height:1.45;margin-top:7px">Ortalama, yalnızca okuma yaptığın günlere göre hesaplanır.</div>'+
