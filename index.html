@@ -88,6 +88,35 @@
   #libraryView>.between #addBookBtn{padding-left:12px;padding-right:12px;font-size:14px}
 }
 
+/* Mobile readability and keyboard-safe form refinements; scoped to app views. */
+#libraryView .book,#bookDetailView .bookDetailHero,#miniView .miniHero{min-width:0}
+#libraryView .book>*,#bookDetailView .bookDetailHero>*,#miniView .miniHero>*{min-width:0}
+#libraryView .book h3,#libraryView .bookAuthor,#bookDetailView .bookDetailAuthor,#miniView .miniTitle,
+#bookDetailView .quote,#miniView .miniFlowText,#quoteFormView textarea,#bookFormView textarea,
+#bookDetailView .note{overflow-wrap:anywhere;word-break:normal}
+#bookFormView .row>div,#quoteFormView .grid>div{min-width:0}
+#bookFormView input,#bookFormView textarea,#bookFormView select,
+#quoteFormView input,#quoteFormView textarea,#quoteFormView select{max-width:100%;font-size:16px}
+#bookFormView .formActions button,#quoteFormView .formActions button{min-height:44px}
+#bookFormView input:focus,#bookFormView textarea:focus,#bookFormView select:focus,
+#quoteFormView input:focus,#quoteFormView textarea:focus,#quoteFormView select:focus{scroll-margin-bottom:160px}
+@media(max-width:420px){
+ #bookFormView .row{align-items:flex-start;gap:10px}
+ #bookFormView .coverPreview{width:76px;height:112px}
+ #bookFormView .row #coverPreviewWrap{flex:0 0 76px}
+ #bookFormView .formActions,#quoteFormView .formActions{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+ #bookFormView .formActions button,#quoteFormView .formActions button{width:100%;white-space:normal}
+ #bookDetailView .quote{font-size:clamp(17px,5vw,22px)}
+ #miniView .miniFlowText{font-size:clamp(17px,4.8vw,21px)}
+}
+@media(max-width:350px){
+ #libraryView .book{grid-template-columns:70px minmax(0,1fr);gap:10px}
+ #libraryView .book .cover{width:70px;height:105px}
+ #bookDetailView .bookDetailHero{grid-template-columns:76px minmax(0,1fr);gap:10px}
+ #bookDetailView .bookDetailCover{width:76px;height:112px}
+ #bookDetailView .bookDetailTitle{font-size:23px}
+}
+
 /* Kitapligim - modern reading calendar, scoped and non-destructive */
 #monthlyReadingCalendar{background:#fffdf9;border:1px solid #e9e2d7;border-radius:22px;box-shadow:0 10px 30px rgba(24,38,64,.045);padding:20px 16px 18px;overflow:hidden}
 #monthlyReadingCalendar>.eyebrow{font-size:10px;letter-spacing:.17em;color:#a58a58;font-weight:800}
