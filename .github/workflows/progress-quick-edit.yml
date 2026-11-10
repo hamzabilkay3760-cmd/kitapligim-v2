@@ -1,4 +1,4 @@
-name: Kitapligim gentle page transitions
+name: Kitapligim refined transitions
 on:
   push:
     paths:
@@ -11,26 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add reduced-motion-aware menu transitions
+      - name: Refine transition with GPU friendly transforms
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old=""" views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id));
-           window.scrollTo({top:0,behavior:'instant'});"""
-          new=""" views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id));
-           if(previous!==id){
-            const incoming=$('#'+id);
-            if(incoming&&typeof incoming.animate==='function'&&!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
-             if(incoming._kitapligimEntrance)incoming._kitapligimEntrance.cancel();
-             incoming._kitapligimEntrance=incoming.animate([
-              {opacity:0.65,transform:'translateY(10px) scale(.965)',clipPath:'circle(32% at 50% 38%)'},
+          old="""    {opacity:0.65,transform:'translateY(10px) scale(.965)',clipPath:'circle(32% at 50% 38%)'},
               {opacity:1,transform:'translateY(0) scale(1)',clipPath:'circle(150% at 50% 38%)'}
-             ],{duration:360,easing:'cubic-bezier(.18,.8,.25,1)',fill:'none'});
-            }
-           }
-           window.scrollTo({top:0,behavior:'instant'});"""
+             ],{duration:360,easing:'cubic-bezier(.18,.8,.25,1)',fill:'none'});"""
+          new="""    {opacity:0.25,transform:'translate3d(0,18px,0) scale(.91)'},
+              {opacity:0.86,transform:'translate3d(0,-2px,0) scale(1.012)',offset:0.78},
+              {opacity:1,transform:'translate3d(0,0,0) scale(1)'}
+             ],{duration:420,easing:'cubic-bezier(.2,.78,.2,1)',fill:'none'});"""
           assert s.count(old)==1
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
@@ -41,5 +34,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Add gentle radial reveal menu transitions"
+          git commit -m "Refine menu transitions for fluid performance"
           git push
