@@ -956,7 +956,11 @@ function renderAnnualSummarySafe(){
  if(journey)journey.addEventListener('click',event=>{
   event.preventDefault();event.stopPropagation();
   try{openReadingJourney(year)}
-  catch(error){console.error('Okuma Yolculuğum açılış hatası:',error);alert('Okuma Yolculuğu açılamadı. Lütfen sayfayı yenileyip tekrar dene.')}
+  catch(error){
+   console.error('Okuma Yolculuğum açılış hatası:',error);
+   const detail=error&&error.message?String(error.message):'Bilinmeyen hata';
+   alert('Okuma Yolculuğu açılamadı. Hata ayrıntısı: '+detail);
+  }
  });
  const backup=view.querySelector('.card');
  if(backup)view.insertBefore(card,backup);else view.appendChild(card);
