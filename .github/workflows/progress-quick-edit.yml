@@ -1,4 +1,4 @@
-name: Kitapligim read-only backup verification
+name: Kitapligim safe save warning
 on:
   push:
     paths:
@@ -11,45 +11,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add safe backup validation
+      - name: Guard library saves
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old='<label for="importInput" class="btn secondary">Yedeği geri yükle</label></div><input id="importInput" class="hidden" type="file" accept="application/json">'
-          new='<label for="importInput" class="btn secondary">Yedeği geri yükle</label><label for="verifyBackupInput" class="btn secondary" style="cursor:pointer">Yedek dosyasını kontrol et</label></div><input id="importInput" class="hidden" type="file" accept="application/json"><input id="verifyBackupInput" class="hidden" type="file" accept="application/json,.json">'
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          old="const validLibrary=obj=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&Array.isArray(obj.books)&&Array.isArray(obj.quotes)&&obj.books.every(b=>b&&typeof b==='object'&&!Array.isArray(b)&&b.id!=null)&&obj.quotes.every(q=>q&&typeof q==='object'&&!Array.isArray(q)&&q.id!=null);"
-          new=old+"""
-          // Read-only backup verification. Never writes to localStorage or replaces the library.
-          const verifyBackupInput=document.querySelector('#verifyBackupInput');
-          verifyBackupInput.onchange=async e=>{
-           const file=e.target.files&&e.target.files[0];if(!file)return;
+          old="const save=()=>localStorage.setItem(storeKey,JSON.stringify(state)); const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random();"
+          new="""// Preserve the last successfully saved library if browser storage is full or unavailable.
+          let librarySaveFailureShown=false;
+          const save=()=>{
            try{
-            if(file.size>200*1024*1024)throw Error('Dosya 200 MB sınırını aşıyor.');
-            const parsed=JSON.parse(await file.text());
-            let restored,streak=null,goals=null;
-            if(parsed&&parsed.format==='kitapligim-backup'&&parsed.version===2&&parsed.entries&&typeof parsed.entries==='object'&&!Array.isArray(parsed.entries)){
-             const entries=parsed.entries;
-             if(typeof entries[storeKey]!=='string')throw Error('Kitaplık verisi bulunamadı.');
-             restored=JSON.parse(entries[storeKey]);
-             if(entries[readingStreakKey]!==undefined){if(typeof entries[readingStreakKey]!=='string')throw Error('Okuma serisi biçimi geçersiz.');streak=JSON.parse(entries[readingStreakKey]);if(!streak||typeof streak!=='object'||Array.isArray(streak)||!streak.days||typeof streak.days!=='object'||Array.isArray(streak.days))throw Error('Okuma serisi verisi bozuk.')}
-             if(entries[readingGoalKey]!==undefined){if(typeof entries[readingGoalKey]!=='string')throw Error('Okuma hedefi biçimi geçersiz.');goals=JSON.parse(entries[readingGoalKey]);if(!goals||typeof goals!=='object'||Array.isArray(goals))throw Error('Okuma hedefi verisi bozuk.')}
-            }else if(validLibrary(parsed)){restored=parsed}
-            else throw Error('Geçerli bir Kitaplığım yedeği değil.');
-            if(!validLibrary(restored))throw Error('Kitaplar veya alıntılar eksik ya da bozuk.');
-            const ids=new Set(restored.books.map(b=>String(b.id)));
-            const orphans=restored.quotes.filter(q=>q.bookId==null||!ids.has(String(q.bookId))).length;
-            const date=parsed.createdAt?new Date(parsed.createdAt):null;
-            const dateText=date&&!isNaN(date.getTime())?' · Oluşturulma: '+date.toLocaleDateString('tr-TR'):'';
-            showBackupStatus('✓ Dosya okunabiliyor. '+restored.books.length+' kitap, '+restored.quotes.length+' alıntı'+dateText+'.'+(orphans?' Uyarı: '+orphans+' alıntının bağlı olduğu kitap bulunamadı.':' Alıntıların kitap bağlantıları tutarlı.')+' Bu işlem hiçbir veriyi değiştirmedi.');
-           }catch(err){showBackupStatus('Dosya doğrulanamadı: '+(err.message||'Dosya okunamadı')+'. Mevcut kitaplığın değiştirilmedi.')}
-           finally{e.target.value=''}
+            const serialized=JSON.stringify(state);
+            localStorage.setItem(storeKey,serialized);
+            librarySaveFailureShown=false;
+            return true;
+           }catch(error){
+            console.error('Kitaplığım: kitaplık kaydedilemedi',error);
+            if(!librarySaveFailureShown){
+             librarySaveFailureShown=true;
+             alert('Dikkat: Son değişiklik kaydedilemedi. Tarayıcı depolama alanı dolmuş veya kullanılamıyor olabilir. Uygulamayı kapatmadan önce Veriler bölümünden JSON yedeği almayı dene. Sorun çözülene kadar yeni kayıt ekleme.');
+            }
+            return false;
+           }
           };
-          """
-          assert s.count(old)==1
+          const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random();"""
+          assert s.count(old)==1,'save anchor missing'
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
@@ -59,5 +46,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Add read-only backup file validation"
+          git commit -m "Warn on library save failures without erasing existing data"
           git push
