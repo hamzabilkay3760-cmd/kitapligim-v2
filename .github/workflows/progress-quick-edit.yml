@@ -1,4 +1,4 @@
-name: Kitapligim mobile layout polish
+name: Kitapligim backup safety audit
 on:
   push:
     paths:
@@ -11,44 +11,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Improve narrow screen layout
+      - name: Harden backup and scan preferences
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          anchor='/* Kitapligim - modern reading calendar, scoped and non-destructive */'
-          css="""/* Mobile readability and keyboard-safe form refinements; scoped to app views. */
-          #libraryView .book,#bookDetailView .bookDetailHero,#miniView .miniHero{min-width:0}
-          #libraryView .book>*,#bookDetailView .bookDetailHero>*,#miniView .miniHero>*{min-width:0}
-          #libraryView .book h3,#libraryView .bookAuthor,#bookDetailView .bookDetailAuthor,#miniView .miniTitle,
-          #bookDetailView .quote,#miniView .miniFlowText,#quoteFormView textarea,#bookFormView textarea,
-          #bookDetailView .note{overflow-wrap:anywhere;word-break:normal}
-          #bookFormView .row>div,#quoteFormView .grid>div{min-width:0}
-          #bookFormView input,#bookFormView textarea,#bookFormView select,
-          #quoteFormView input,#quoteFormView textarea,#quoteFormView select{max-width:100%;font-size:16px}
-          #bookFormView .formActions button,#quoteFormView .formActions button{min-height:44px}
-          #bookFormView input:focus,#bookFormView textarea:focus,#bookFormView select:focus,
-          #quoteFormView input:focus,#quoteFormView textarea:focus,#quoteFormView select:focus{scroll-margin-bottom:160px}
-          @media(max-width:420px){
-           #bookFormView .row{align-items:flex-start;gap:10px}
-           #bookFormView .coverPreview{width:76px;height:112px}
-           #bookFormView .row #coverPreviewWrap{flex:0 0 76px}
-           #bookFormView .formActions,#quoteFormView .formActions{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
-           #bookFormView .formActions button,#quoteFormView .formActions button{width:100%;white-space:normal}
-           #bookDetailView .quote{font-size:clamp(17px,5vw,22px)}
-           #miniView .miniFlowText{font-size:clamp(17px,4.8vw,21px)}
-          }
-          @media(max-width:350px){
-           #libraryView .book{grid-template-columns:70px minmax(0,1fr);gap:10px}
-           #libraryView .book .cover{width:70px;height:105px}
-           #bookDetailView .bookDetailHero{grid-template-columns:76px minmax(0,1fr);gap:10px}
-           #bookDetailView .bookDetailCover{width:76px;height:112px}
-           #bookDetailView .bookDetailTitle{font-size:23px}
-          }
-          """
-          assert s.count(anchor)==1
-          s=s.replace(anchor,css+'\n'+anchor)
+          old="""const scanPrefsKey='kitapligim_scan_prefs'; let scanPrefs=JSON.parse(localStorage.getItem(scanPrefsKey)||'{"bookId":"","lastPage":""}');"""
+          new="""const scanPrefsKey='kitapligim_scan_prefs';
+          let scanPrefs={bookId:'',lastPage:''};
+          try{
+           const rawPrefs=localStorage.getItem(scanPrefsKey);
+           if(rawPrefs!==null){
+            const parsedPrefs=JSON.parse(rawPrefs);
+            if(parsedPrefs&&typeof parsedPrefs==='object'&&!Array.isArray(parsedPrefs))scanPrefs={...scanPrefs,...parsedPrefs};
+           }
+          }catch(error){
+           // An unrelated scan preference must never prevent the book library from opening.
+           // Leave the original raw value untouched so it can still be exported.
+           console.warn('Kitaplığım: tarama tercihi okunamadı; ham kayıt korunuyor',error);
+          }"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});"""
+          new="""  const restored=JSON.parse(data.entries[storeKey]);
+            if(!validLibrary(restored))throw Error('Kitaplık kaydı doğrulanamadı.');
+            const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""a.click();a.remove();localStorage.setItem(backupLastDownloadKey,new Date().toISOString());refreshBackupAssurance();setTimeout(()=>URL.revokeObjectURL(url),60000);"""
+          new="""a.click();a.remove();
+            try{localStorage.setItem(backupLastDownloadKey,new Date().toISOString());refreshBackupAssurance()}
+            catch(error){console.warn('Kitaplığım: yedek tarihi kaydedilemedi',error)}
+            setTimeout(()=>URL.revokeObjectURL(url),60000);"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old=""" }catch(err){showBackupStatus('Yedek oluşturulamadı. Tarayıcı depolama alanını kontrol edin.')}"""
+          new=""" }catch(err){showBackupStatus('Yedek oluşturulamadı: '+(err.message||'Tarayıcı depolama alanını kontrol edin.')+'. Mevcut kayıtlar değiştirilmedi.')}"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -57,5 +58,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Improve narrow mobile forms and long text wrapping"
+          git commit -m "Validate backup exports and protect startup from corrupt scan preferences"
           git push
