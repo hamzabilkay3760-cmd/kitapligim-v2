@@ -835,7 +835,7 @@ function openReadingJourney(year){
  const previous=document.getElementById('readingJourneyOverlay');if(previous)previous.remove();
  const days=getReadingStreakData().days||{};
  const books=state.books.filter(b=>b.status==='Okudum'&&String(b.finishedDate||'').slice(0,4)===year);
- const quotes=state.quotes.filter(q=>books.some(b=>String(b.id)===String(q.bookId)));
+ const quotes=(Array.isArray(state.quotes)?state.quotes:[]).filter(q=>q&&books.some(b=>String(b.id)===String(q.bookId)));
  const keys=Object.keys(days).filter(k=>/^\d{4}-\d{2}-\d{2}$/.test(k)&&k.slice(0,4)===year&&Number(days[k]?.pages)>0).sort();
  const total=keys.reduce((n,k)=>n+Number(days[k].pages),0),monthly=Array(12).fill(0);
  keys.forEach(k=>monthly[Number(k.slice(5,7))-1]+=Number(days[k].pages));
@@ -952,7 +952,12 @@ function renderAnnualSummarySafe(){
  }
  const yearPicker=card.querySelector('#annualArchiveYear');
  if(yearPicker)yearPicker.onchange=()=>{annualArchiveSelectedYear=yearPicker.value;renderAnnualSummarySafe()};
- const journey=card.querySelector('#readingJourneyOpen');if(journey)journey.onclick=()=>openReadingJourney(year);
+ const journey=card.querySelector('#readingJourneyOpen');
+ if(journey)journey.addEventListener('click',event=>{
+  event.preventDefault();event.stopPropagation();
+  try{openReadingJourney(year)}
+  catch(error){console.error('Okuma Yolculuğum açılış hatası:',error);alert('Okuma Yolculuğu açılamadı. Lütfen sayfayı yenileyip tekrar dene.')}
+ });
  const backup=view.querySelector('.card');
  if(backup)view.insertBefore(card,backup);else view.appendChild(card);
 }
