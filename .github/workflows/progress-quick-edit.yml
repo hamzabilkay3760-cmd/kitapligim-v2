@@ -1,4 +1,4 @@
-name: Automatic story playback
+name: Smooth story progress bars
 on:
   push:
     paths:
@@ -11,67 +11,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add automatic story playback and hold to pause
+      - name: Animate story progress bar
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          start=s.index('function openReadingJourney(year){')
-          end=s.index('function renderAnnualSummarySafe(){',start)
-          part=s[start:end]
-          old=""" '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><button type="button" id="journeyPrev" style="background:#ffffff19;border:1px solid #ffffff40;border-radius:12px;color:white;padding:12px">← Geri</button><span id="journeyCounter" style="font-size:12px;color:#d7c9b0"></span><button type="button" id="journeyNext" style="background:#d6b878;border:0;border-radius:12px;color:#182640;font-weight:800;padding:12px">İleri →</button></div></div>';"""
-          new=""" '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:12px;color:#d7c9b0">Durdurmak için ekrana basılı tut</span><span id="journeyCounter" style="font-size:12px;color:#d7c9b0"></span></div></div>';"""
-          assert part.count(old)==1
-          part=part.replace(old,new)
-          a=part.index(' let index=0,touchX=null;')
-          b=part.index('\n}',a)
-          part=part[:a]+""" let index=0,elapsed=0,started=0,timer=null,holding=false,closed=false;
-           const duration=5000;
-           const stage=overlay.firstElementChild;
-           function stopTimer(){if(timer!==null){clearTimeout(timer);timer=null}}
-           function updateBars(){
-            const bars=progress.children;
-            for(let i=0;i<bars.length;i++){
-             const fraction=i<index?1:i>index?0:Math.min(1,elapsed/duration);
-             bars[i].style.background='linear-gradient(to right,#d6b878 '+Math.round(fraction*100)+'%,#ffffff38 '+Math.round(fraction*100)+'%)';
-            }
-           }
-           function close(){
-            if(closed)return;closed=true;stopTimer();
-            document.removeEventListener('keydown',onKey);
-            document.removeEventListener('visibilitychange',onVisibility);
-            overlay.remove();if(focus&&focus.isConnected)focus.focus();
-           }
-           function schedule(){
-            stopTimer();updateBars();
-            if(holding||document.hidden||closed)return;
-            started=Date.now();
-            timer=setTimeout(()=>{elapsed=duration;updateBars();if(index===slides.length-1)close();else{index++;elapsed=0;draw()}},Math.max(1,duration-elapsed));
-           }
-           function pause(){if(holding||closed)return;holding=true;if(timer!==null)elapsed=Math.min(duration,elapsed+Date.now()-started);stopTimer();updateBars()}
-           function resume(){if(!holding||closed)return;holding=false;schedule()}
-           function draw(){
-            const slide=slides[index];
-            progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38"></span>').join('');
-            body.innerHTML='<div style="font-size:11px;letter-spacing:.18em;color:#d6b878;font-weight:800">'+esc(slide[0])+'</div>'+
-             '<div style="font:clamp(30px,8vw,44px)/1.2 Georgia,serif;overflow-wrap:anywhere;max-width:100%">'+esc(slide[1])+'</div>'+
-             '<div style="font-size:15px;line-height:1.6;color:#e2ded7;max-width:310px;overflow-wrap:anywhere">'+esc(slide[2])+'</div>';
-            overlay.querySelector('#journeyCounter').textContent=(index+1)+' / '+slides.length;
-            if(body.animate&&!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))body.animate([{opacity:.35,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'ease-out'});
-            schedule();
-           }
-           function onKey(e){if(e.key==='Escape')close()}
-           function onVisibility(){if(document.hidden)pause();else resume()}
-           overlay.querySelector('#journeyClose').onclick=close;
-           stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;pause()});
-           stage.addEventListener('pointerup',resume);
-           stage.addEventListener('pointercancel',resume);
-           stage.addEventListener('pointerleave',resume);
-           document.addEventListener('keydown',onKey);
-           document.addEventListener('visibilitychange',onVisibility);
-           draw();overlay.querySelector('#journeyClose').focus();""" +part[b:]
-          s=s[:start]+part+s[end:]
+          old="""   bars[i].style.background='linear-gradient(to right,#d6b878 '+Math.round(fraction*100)+'%,#ffffff38 '+Math.round(fraction*100)+'%)';"""
+          new="""   bars[i].style.background='#ffffff38';
+             const fill=bars[i].firstElementChild;
+             if(fill){fill.style.transition='none';fill.style.width=Math.round(fraction*100)+'%'}"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""  started=Date.now();
+            timer=setTimeout"""
+          new="""  started=Date.now();
+            const fill=progress.children[index]&&progress.children[index].firstElementChild;
+            if(fill){fill.getBoundingClientRect();fill.style.transition='width '+Math.max(1,duration-elapsed)+'ms linear';fill.style.width='100%'}
+            timer=setTimeout"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38"></span>').join('');"""
+          new="""progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38;overflow:hidden"><span style="display:block;height:100%;width:0;background:#d6b878"></span></span>').join('');"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
           python3 - <<'PY'
@@ -86,5 +49,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Auto play reading stories with hold to pause"
+          git commit -m "Animate story playback progress"
           git push
