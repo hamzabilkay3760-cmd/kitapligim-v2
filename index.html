@@ -1497,7 +1497,16 @@ function setupDetailReadingProgress(bookId){
  item.style.cssText='display:flex;align-items:center;gap:16px;margin-top:16px;padding:14px 16px;border:1px solid #e2d7c4;border-radius:18px;background:#fcf8ef';
  item.innerHTML='<div style="width:76px;height:76px;border-radius:50%;display:grid;place-items:center;flex:0 0 76px;background:conic-gradient('+progressColor(shownPct)+' '+shownPct+'%,#e9dfcf '+shownPct+'%)"><div style="width:58px;height:58px;border-radius:50%;background:#fffdf8;display:grid;place-items:center;font-size:18px;font-weight:800;color:#182640">%'+shownPct+'</div></div><div style="flex:1"><div style="font-family:Georgia,serif;font-size:18px;color:#182640;margin-bottom:4px">Okuma ilerlemesi</div><div style="font-size:13px;color:#756d61">'+(b.currentPage?'Sayfa '+esc(String(b.currentPage))+(b.pages?' / '+esc(String(b.pages)):''):'Henüz bulunduğun sayfayı eklemedin.')+'</div><button type="button" class="btn secondary progressEditBtn" style="margin-top:9px;padding:7px 10px;font-size:12px">'+(b.currentPage?'İlerlemeyi güncelle':'İlerleme ekle')+'</button></div>';
  card.appendChild(item);
- const btn=item.querySelector('.progressEditBtn');if(btn)btn.onclick=()=>renderBookForm(b);
+ const btn=item.querySelector('.progressEditBtn');if(btn)btn.onclick=()=>{
+  renderBookForm(b);
+  requestAnimationFrame(()=>{
+    const field=document.getElementById('bfCurrentPage');
+    if(!field)return;
+    field.scrollIntoView({behavior:'instant',block:'center'});
+    field.focus({preventScroll:true});
+    field.select();
+  });
+};
 }
 function setupBookFavorite(bookId){
  const b=state.books.find(x=>x.id===bookId);if(!b)return;
