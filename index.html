@@ -2970,11 +2970,12 @@ function cleanQuoteText(s){
    .replace(/[ \t]{2,}/g,' ')
    .replace(/[ \t]*\n[ \t]*/g,'\n')
    .replace(/\n{3,}/g,'\n\n')
+   .replace(/(^|\s)[|¦]+(?=\s|$)/g,'$1')
    .replace(/^[|¦]\s*/,'')
    .replace(/\s*[|¦]$/,'')
    .trim();
 }
-function wordsToHighlightedText(words,groups){
+function selectedWordsByGroup(words,groups){
  const selected=[];
  for(const w of words){
    if(!w.text||w.confidence<12)continue;
@@ -2985,16 +2986,18 @@ function wordsToHighlightedText(words,groups){
      if(matched){selected.push({...w,group:g,segIndex:matched.i});break}
    }
  }
- // Aynı kelimeyi olası yinelenen OCR çıktılarından arındır.
  const dedup=[];
  for(const w of selected.sort((a,b)=>a.bbox.y0-b.bbox.y0||a.bbox.x0-b.bbox.x0)){
    const prev=dedup.at(-1);
    if(prev&&prev.text===w.text&&Math.abs(prev.bbox.x0-w.bbox.x0)<4&&Math.abs(prev.bbox.y0-w.bbox.y0)<4)continue;
    dedup.push(w);
  }
+ return groups.map(g=>dedup.filter(w=>w.group===g).sort((a,b)=>a.bbox.x0-b.bbox.x0));
+}
+function wordsToHighlightedText(words,groups){
+ const grouped=selectedWordsByGroup(words,groups);
  const groupTexts=[];
- for(const g of groups){
-   const groupWords=dedup.filter(w=>w.group===g);
+ for(const groupWords of grouped){
    if(!groupWords.length)continue;
    const byLine=[];
    for(const w of groupWords){
@@ -3015,9 +3018,33 @@ function wordsToHighlightedText(words,groups){
  }
  return cleanQuoteText(groupTexts.join('\n\n'));
 }
+function cropRecognizedWordLine(src,groupWords,workScale){
+ if(!groupWords.length)return null;
+ const inv=1/Math.max(workScale,.0001);
+ let x1=Math.min(...groupWords.map(w=>w.bbox.x0))*inv;
+ let x2=Math.max(...groupWords.map(w=>w.bbox.x1))*inv;
+ let y1=Math.min(...groupWords.map(w=>w.bbox.y0))*inv;
+ let y2=Math.max(...groupWords.map(w=>w.bbox.y1))*inv;
+ const h=Math.max(1,y2-y1),w=Math.max(1,x2-x1);
+ const padX=Math.max(7,Math.min(18,w*.018));
+ const padY=Math.max(5,Math.min(14,h*.22));
+ x1=Math.max(0,Math.floor(x1-padX));x2=Math.min(src.width,Math.ceil(x2+padX));
+ y1=Math.max(0,Math.floor(y1-padY));y2=Math.min(src.height,Math.ceil(y2+padY));
+ const cw=Math.max(1,x2-x1),ch=Math.max(1,y2-y1);
+ const raw=document.createElement('canvas');raw.width=cw;raw.height=ch;
+ const rctx=ctx2d(raw,true);rctx.fillStyle='white';rctx.fillRect(0,0,cw,ch);
+ rctx.drawImage(src,x1,y1,cw,ch,0,0,cw,ch);
+ const scale=Math.max(2.2,Math.min(4.2,140/Math.max(1,ch)));
+ const out=document.createElement('canvas');
+ out.width=Math.max(1,Math.round(cw*scale));out.height=Math.max(1,Math.round(ch*scale));
+ const octx=ctx2d(out,true);octx.fillStyle='white';octx.fillRect(0,0,out.width,out.height);
+ octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';
+ octx.drawImage(raw,0,0,out.width,out.height);
+ return out;
+}
 async function ocrHighlightedRegions(regions){
  const src=$('#photoCanvas');
- const maxDim=1800;
+ const maxDim=2400;
  const scale=Math.min(1,maxDim/Math.max(src.width,src.height));
  let work=src;
  if(scale<.999){
@@ -3034,8 +3061,28 @@ async function ocrHighlightedRegions(regions){
  let data={};
  try{data=await recognizeCanvasData(work,'3',{tsv:true})}catch(err){console.warn('Tam sayfa OCR başarısız, alan okumasına geçiliyor',err)}
  const words=wordsFromTSV(data.tsv||'');
- const selected=words.length?wordsToHighlightedText(words,mapped):'';
- if(selected)return selected;
+ if(words.length){
+   const grouped=selectedWordsByGroup(words,mapped);
+   const refined=[];
+   for(const groupWords of grouped){
+     if(!groupWords.length)continue;
+     const fallback=cleanText(groupWords.map(w=>w.text).join(' '));
+     const lineCanvas=cropRecognizedWordLine(src,groupWords,scale);
+     let text=fallback;
+     if(lineCanvas){
+       try{
+         const lineData=await recognizeCanvasData(lineCanvas,'7');
+         const lineText=cleanQuoteText(lineData.text||'');
+         if(lineText&&lineText.length>=Math.max(3,Math.round(fallback.length*.65)))text=lineText;
+       }catch(err){console.warn('Satır iyileştirme OCR başarısız',err)}
+     }
+     text=cleanQuoteText(text);
+     if(text)refined.push(text);
+   }
+   if(refined.length)return cleanQuoteText(refined.join('\n\n'));
+   const selected=wordsToHighlightedText(words,mapped);
+   if(selected)return selected;
+ }
 
  setStatus('İşaretlenen alanlar tek tek okunuyor…','warn');
  const parts=[];
