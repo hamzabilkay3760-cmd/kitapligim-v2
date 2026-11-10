@@ -1,9 +1,9 @@
-name: Kitapligim daily reading sync
+name: Kitapligim reading counter sync
 on:
-  workflow_dispatch:
   push:
     paths:
-      - .github/workflows/progress-quick-edit.yml
+      - '.github/workflows/progress-quick-edit.yml'
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -11,41 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Refresh reading counters after progress changes
+      - name: Update reading counters
+        shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text(encoding='utf-8')
-          old="""    save();
-    if(autoFinished)showBookFinishedCelebration(obj.id); else renderBook(obj.id);"""
-          new="""    save();
-    // Synchronize daily streak, calendar and journal after every book progress save.
-    setupReadingStreak();
-    renderMonthlyReadingCalendarSafe();
-    renderReadingJournalWeeklySafe();
-    renderMonthlyReadingComparison();
-    if(autoFinished)showBookFinishedCelebration(obj.id); else renderBook(obj.id);"""
-          if old in s:
-              assert s.count(old)==1
-              s=s.replace(old,new)
-          elif new not in s: raise SystemExit('Progress save anchor not found')
-          old2="""     saveReadingStreakData(latest);save();
-       readingCalendarSelectedDay=key;"""
-          new2="""     saveReadingStreakData(latest);save();
-       setupReadingStreak();
-       readingCalendarSelectedDay=key;"""
-          if old2 in s:
-              assert s.count(old2)==1
-              s=s.replace(old2,new2)
-          elif new2 not in s: print('Calendar anchor differs; skipped safely')
-          p.write_text(s,encoding='utf-8')
-          PY
-      - name: Commit isolated fix
+          python3 -c 'from pathlib import Path; p=Path("index.html"); s=p.read_text(); old="    save();\n    if(autoFinished)showBookFinishedCelebration(obj.id); else renderBook(obj.id);"; new="    save();\n    setupReadingStreak();\n    if(autoFinished)showBookFinishedCelebration(obj.id); else renderBook(obj.id);"; assert s.count(old)==1 or new in s; p.write_text(s.replace(old,new))'
+      - name: Commit when changed
+        shell: bash
         run: |
           if git diff --quiet -- index.html; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Synchronize reading counters after progress edits"
+          git commit -m "Refresh reading streak on book progress save"
           git push
