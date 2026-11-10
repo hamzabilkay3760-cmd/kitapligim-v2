@@ -1,4 +1,4 @@
-name: Kitapligim annual monthly chart
+name: Kitapligim annual goal progress
 on:
   push:
     paths:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add annual monthly reading chart
+      - name: Show existing annual book goal in yearly statistics
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -20,47 +20,25 @@ jobs:
           start=s.index('function renderAnnualSummarySafe(){')
           end=s.index('let readingCalendarCursor=',start)
           part=s[start:end]
-          old="""   const now=String(new Date().getFullYear());
-             const years=[...new Set([now,...state.books.map(b=>String(b.finishedDate||'').slice(0,4)).filter(y=>/^\\d{4}$/.test(y))])].sort((a,b)=>Number(b)-Number(a));"""
-          new="""   const now=String(new Date().getFullYear());
-             const readingDays=getReadingStreakData().days||{};
-             const readingYears=Object.keys(readingDays).filter(k=>/^\\d{4}-\\d{2}-\\d{2}$/.test(k)&&Number(readingDays[k]?.pages)>0).map(k=>k.slice(0,4));
-             const years=[...new Set([now,...readingYears,...state.books.map(b=>String(b.finishedDate||'').slice(0,4)).filter(y=>/^\\d{4}$/.test(y))])].sort((a,b)=>Number(b)-Number(a));"""
+          old="""   const ids=new Set(books.map(b=>b.id));"""
+          new="""   const goalValue=Number(getReadingGoals()[year]);
+             const goal=Number.isSafeInteger(goalValue)&&goalValue>0?goalValue:0;
+             const goalPercent=goal?Math.min(100,Math.round(books.length/goal*100)):0;
+             const goalRemaining=Math.max(0,goal-books.length);
+             const goalCard='<section aria-label="Yıllık kitap hedefi" style="margin:12px 0;padding:14px;background:#fbf7ef;border:1px solid #e9dfcd;border-radius:16px">'+
+              '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div class="eyebrow" style="font-size:10px">Yıllık kitap hedefim</div>'+
+              '<strong style="font-size:13px;color:#182640">'+(goal?books.length+' / '+goal+' kitap':'Hedef belirlenmedi')+'</strong></div>'+
+              (goal?'<div role="progressbar" aria-label="Yıllık kitap hedefi ilerlemesi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+goalPercent+'" style="height:9px;border-radius:99px;background:#e6ddce;overflow:hidden;margin:11px 0 8px"><div style="height:100%;width:'+goalPercent+'%;border-radius:99px;background:#a98a4a"></div></div>'+
+              '<div class="muted" style="font-size:12px">'+(goalRemaining?'Hedefe '+goalRemaining+' kitap kaldı.':'Tebrikler, yıllık kitap hedefini tamamladın!')+'</div>':
+              '<div class="muted" style="font-size:12px;line-height:1.5;margin-top:9px">Kütüphanem ekranındaki yıllık okuma hedefinden kitap sayısı belirleyebilirsin.</div>')+
+              '</section>';
+             const ids=new Set(books.map(b=>b.id));"""
           assert part.count(old)==1
           part=part.replace(old,new)
-          old="""   const books=state.books.filter(b=>(b.status||'')==='Okudum'&&String(b.finishedDate||'').slice(0,4)===year);"""
-          new="""   const books=state.books.filter(b=>(b.status||'')==='Okudum'&&String(b.finishedDate||'').slice(0,4)===year);
-             const monthNames=['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
-             const monthlyPages=Array(12).fill(0);
-             Object.keys(readingDays).forEach(key=>{
-              if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(key)||key.slice(0,4)!==year)return;
-              const month=Number(key.slice(5,7))-1;
-              const n=Number(readingDays[key]?.pages);
-              if(month>=0&&month<12&&Number.isFinite(n)&&n>0)monthlyPages[month]+=n;
-             });
-             const maxMonthly=Math.max(...monthlyPages,0);
-             const totalReadPages=monthlyPages.reduce((a,b)=>a+b,0);
-             const peakMonth=totalReadPages?monthlyPages.indexOf(maxMonthly):-1;
-             const monthlyChart='<section aria-label="Aylara göre okunan sayfalar" style="margin:14px 0 4px;padding:14px 12px 12px;background:#fbf7ef;border:1px solid #e9dfcd;border-radius:16px">'+
-              '<div class="eyebrow" style="font-size:10px">Aylık okuma dağılımı</div>'+
-              '<div class="muted" style="font-size:11px;margin:5px 0 14px">Günlük okuma kayıtlarına göre · '+totalReadPages.toLocaleString('tr-TR')+' sayfa</div>'+
-              '<div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px;align-items:end;min-height:140px">'+
-              monthlyPages.map((n,i)=>{
-               const h=maxMonthly?Math.max(3,Math.round(n/maxMonthly*98)):3;
-               const label=monthNames[i]+' · '+n.toLocaleString('tr-TR')+' sayfa';
-               return '<div title="'+esc(label)+'" aria-label="'+esc(label)+'" style="min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px">'+
-                '<span style="font-size:9px;color:#182640;font-variant-numeric:tabular-nums;min-height:12px">'+(n?String(n):'')+'</span>'+
-                '<div style="width:100%;max-width:22px;height:'+h+'px;border-radius:5px 5px 2px 2px;background:'+(n?'#a98a4a':'#e6ddce')+'"></div>'+
-                '<span style="font-size:9px;color:#70695d;white-space:nowrap">'+monthNames[i]+'</span></div>';
-              }).join('')+'</div>'+
-              '<div class="muted" style="font-size:11px;margin-top:12px">'+(peakMonth>=0?'En çok okunan ay: '+monthNames[peakMonth]+' · '+maxMonthly.toLocaleString('tr-TR')+' sayfa':'Bu yıl henüz günlük okuma kaydı bulunmuyor.')+'</div></section>';"""
-          assert part.count(old)==1
-          part=part.replace(old,new)
-          old="""   (books.length
-              ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+"""
-          new="""   monthlyChart+
-             (books.length
-              ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+"""
+          old="""   monthlyChart+
+             (books.length"""
+          new="""   monthlyChart+goalCard+
+             (books.length"""
           assert part.count(old)==1
           part=part.replace(old,new)
           s=s[:start]+part+s[end:]
@@ -72,5 +50,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Add annual reading distribution chart"
+          git commit -m "Show annual book goal progress in yearly statistics"
           git push
