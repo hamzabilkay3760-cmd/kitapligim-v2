@@ -2892,6 +2892,8 @@ async function getOcrWorker(){
  if(!ocrWorkerPromise){
    setStatus('Türkçe OCR motoru hazırlanıyor…','warn');
    ocrWorkerPromise=T.createWorker('tur',1,{
+     langPath:'https://tessdata.projectnaptha.com/4.0.0_best',
+     cachePath:'kitapligim-tur-best-v1',
      logger:m=>{
        if(m&&m.status==='recognizing text'){
          setStatus('Metin okunuyor… %'+Math.round((m.progress||0)*100),'warn');
