@@ -1,4 +1,4 @@
-name: Kitapligim reading journal clarity
+name: Kitapligim statistics tabs
 on:
   push:
     paths:
@@ -11,45 +11,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Clarify reading history and averages
+      - name: Add mobile friendly statistics tabs
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""     const book=state.books.find(b=>String(b.id)===String(x.bookId));
-               const pages=Number(x.pages)||0;
-               return '<div class="readingHistoryRow" '"""
-          new="""     const book=state.books.find(b=>String(b.id)===String(x.bookId));
-               const pages=Number(x.pages)||0;
-               const breakdown=x.bookPages&&typeof x.bookPages==='object'&&!Array.isArray(x.bookPages)&&Object.keys(x.bookPages).length?x.bookPages:(x.bookId?{[String(x.bookId)]:pages}:{});
-               const names=Object.entries(breakdown).filter(([,n])=>Number(n)>0).map(([id,n])=>{
-                 const found=state.books.find(b=>String(b.id)===String(id));
-                 return esc(found?String(found.title||'İsimsiz kitap'):'Silinmiş kitap')+' · '+Number(n)+' sayfa';
-               }).join('<span style="padding:0 4px;color:#a79c89">·</span>');
-               return '<div class="readingHistoryRow" '"""
+          old="""  <section id="dataView" class="hidden">
+              <div class="eyebrow">Yedekleme</div>"""
+          new="""  <section id="dataView" class="hidden">
+              <div id="readingStatsTabs" class="readingStatsTabs" role="tablist" aria-label="Okuma istatistikleri">
+                <button type="button" data-reading-tab="daily" role="tab" aria-selected="true">Günlük</button>
+                <button type="button" data-reading-tab="monthly" role="tab" aria-selected="false">Aylık</button>
+                <button type="button" data-reading-tab="yearly" role="tab" aria-selected="false">Yıllık</button>
+              </div>
+              <div class="eyebrow">Yedekleme</div>"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="""esc(book?String(book.title||''):'Kitap kaydı bulunamadı')+'</div></div>'+"""
-          new="""(names||esc(book?String(book.title||''):'Kitap kaydı bulunamadı'))+'</div></div>'+"""
+          old="""<style>#appSmartBack{"""
+          new="""<style>
+          #dataView .readingStatsTabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;background:#eae3d5;border:1px solid #ded4c3;border-radius:16px;padding:5px;margin:0 0 16px;position:sticky;top:65px;z-index:10}
+          #dataView .readingStatsTabs button{font-size:13px;min-height:42px;padding:9px 5px;border-radius:12px;background:transparent;color:#555d68;box-shadow:none}
+          #dataView .readingStatsTabs button[aria-selected="true"]{background:#fffdf8;color:#182640;box-shadow:0 2px 8px #18264015}
+          #dataView[data-reading-tab="daily"] #monthlyReadingCalendar,#dataView[data-reading-tab="daily"] #monthlyReadingComparison,#dataView[data-reading-tab="daily"] #annualSummarySafe,#dataView[data-reading-tab="daily"] #bookMemoryArchive{display:none}
+          #dataView[data-reading-tab="monthly"] #readingJournalWeekly,#dataView[data-reading-tab="monthly"] #annualSummarySafe,#dataView[data-reading-tab="monthly"] #bookMemoryArchive{display:none}
+          #dataView[data-reading-tab="yearly"] #readingJournalWeekly,#dataView[data-reading-tab="yearly"] #monthlyReadingCalendar,#dataView[data-reading-tab="yearly"] #monthlyReadingComparison{display:none}
+          #dataView .readingStatsTabs~.eyebrow{margin-top:22px}
+          </style>
+          <style>#appSmartBack{"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="""white-space:nowrap;overflow:hidden;text-overflow:ellipsis"""
-          new="""overflow-wrap:anywhere;line-height:1.5"""
-          assert s.count(old)>=1
-          s=s.replace(old,new,1)
-          old="""'<div class="eyebrow" style="font-size:9px">Günlük ort.</div>'"""
-          new="""'<div class="eyebrow" style="font-size:9px">Okunan gün ort.</div>'"""
+          old="""function esc(s=''){return s.replace("""
+          new="""function setupReadingStatsTabs(){
+           const view=$('#dataView'),tabs=$('#readingStatsTabs');if(!view||!tabs)return;
+           const selected=['daily','monthly','yearly'].includes(view.dataset.readingTab)?view.dataset.readingTab:'daily';
+           view.dataset.readingTab=selected;
+           tabs.querySelectorAll('[data-reading-tab]').forEach(button=>{
+            const active=button.dataset.readingTab===selected;
+            button.setAttribute('aria-selected',String(active));
+            button.tabIndex=active?0:-1;
+            button.onclick=()=>{
+             view.dataset.readingTab=button.dataset.readingTab;
+             setupReadingStatsTabs();
+            };
+           });
+          }
+          function esc(s=''){return s.replace("""
+          assert s.count(old)==1
           s=s.replace(old,new)
-          old="""'<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+"""
-          new="""'<div class="muted" style="font-size:11px;line-height:1.45;margin-top:7px">Ortalama, yalnızca okuma yaptığın günlere göre hesaplanır.</div>'+
-               '<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+"""
-          s=s.replace(old,new)
-          old="""'<div class="muted" style="font-size:12px">Günde ortalama '+dailyAverageText+' sayfa</div>'"""
-          new="""'<div class="muted" style="font-size:12px">Takvim günü başına '+dailyAverageText+' sayfa</div>'"""
-          s=s.replace(old,new)
-          old="""'<div class="muted" style="font-size:12px">Günde ortalama '+avgText(previousAverage)+' sayfa</div>'"""
-          new="""'<div class="muted" style="font-size:12px">Takvim günü başına '+avgText(previousAverage)+' sayfa</div>'"""
+          old="""renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();}});"""
+          new="""renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();setupReadingStatsTabs();}});"""
+          assert s.count(old)==1
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
@@ -59,5 +71,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Show all books in reading history and clarify averages"
+          git commit -m "Add simple daily monthly yearly statistics tabs"
           git push
