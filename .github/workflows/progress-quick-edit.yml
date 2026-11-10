@@ -1,4 +1,4 @@
-name: Kitapligim safe recovery screen
+name: Kitapligim unsaved edits protection
 on:
   push:
     paths:
@@ -11,77 +11,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add non-destructive startup recovery
+      - name: Guard unsaved edits
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""const storeKey='kitapligim_v1'; let state=JSON.parse(localStorage.getItem(storeKey)||'{"books":[],"quotes":[]}');"""
-          new="""const storeKey='kitapligim_v1';
-          let libraryRecoveryIssue='',libraryRecoveryRaw=null;
-          let state={books:[],quotes:[]};
-          try{
-           libraryRecoveryRaw=localStorage.getItem(storeKey);
-           if(libraryRecoveryRaw!==null){
-            const parsed=JSON.parse(libraryRecoveryRaw);
-            if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||!Array.isArray(parsed.books)||!Array.isArray(parsed.quotes))throw Error('Kitaplık yapısı geçersiz');
-            state=parsed;
-           }
-          }catch(err){
-           libraryRecoveryIssue='Kitaplık verisi okunamadı veya biçimi bozulmuş.';
-           console.error('Kitaplığım: güvenli kurtarma gerekli',err);
-          }"""
-          assert s.count(old)==1,'state init not found'
-          s=s.replace(old,new)
-          old="""const save=()=>{
-           try{
-            const serialized=JSON.stringify(state);"""
-          new="""const save=()=>{
-           if(libraryRecoveryIssue){
-            if(!librarySaveFailureShown){librarySaveFailureShown=true;alert('Kitaplık verisi okunamadı. Mevcut veriler korunuyor; kurtarma tamamlanmadan yeni kayıt yapılamaz.');}
-            return false;
-           }
-           try{
-            const serialized=JSON.stringify(state);"""
-          assert s.count(old)==1,'save anchor not found'
-          s=s.replace(old,new)
-          old="if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});renderLibrary();refreshBookSelect();"
-          new="""if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-          renderLibrary();refreshBookSelect();
-          if(libraryRecoveryIssue){
-           const overlay=document.createElement('div');
-           overlay.id='libraryRecoveryScreen';
-           overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#f7f1e5;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
-           overlay.innerHTML='<div style="width:min(460px,100%);background:#fffdf8;border:1px solid #dfd2b5;border-radius:22px;padding:25px 22px;box-shadow:0 15px 50px #18264022"><div style="font-size:12px;letter-spacing:.08em;color:#a08042">KİTAPLIĞIM · GÜVENLİ KURTARMA</div><h2 style="font-family:Georgia,serif;font-size:29px;margin:13px 0;color:#182640">Kitaplık verisi okunamadı</h2><p style="font-size:14px;line-height:1.7;color:#5f5a50">Kayıtların bozulmuş olabilir. Mevcut tarayıcı verilerini silmedik ve üzerine yeni veri yazılmasını durdurduk. Önce ham verinin bir kopyasını alabilir, ardından sağlam JSON yedeğini geri yükleyebilirsin.</p><div style="display:grid;gap:10px;margin-top:20px"><button id="recoveryDownload" type="button">Mevcut ham veriyi indir</button><label for="recoveryImport" class="btn secondary" style="text-align:center;cursor:pointer">Sağlam yedeği geri yükle</label><input id="recoveryImport" type="file" accept="application/json,.json" style="display:none"><p id="recoveryFeedback" role="status" style="font-size:12px;color:#695f4c;line-height:1.5"></p></div></div>';
+          anchor="function appGoBack(){"
+          insert="""// Guard unsaved edits on book and quote forms without changing their existing save logic.
+          let editGuardSnapshot=null,editGuardBypass=false;
+          function editGuardForm(){const id=activeView();return id==='bookFormView'||id==='quoteFormView'?document.getElementById(id):null}
+          function editGuardValues(form){
+           if(!form)return '';
+           return JSON.stringify([...form.querySelectorAll('input,textarea,select')].filter(el=>el.type!=='file'&&el.type!=='button').map(el=>[el.id,el.value,el.type==='checkbox'?el.checked:null]).concat([...form.querySelectorAll('input[type=file]')].map(el=>[el.id,el.files?.[0]?.name||'',el.files?.[0]?.size||0])));
+          }
+          function editGuardDirty(){const form=editGuardForm();return !!(form&&editGuardSnapshot&&editGuardSnapshot.view===form.id&&editGuardValues(form)!==editGuardSnapshot.values)}
+          function editGuardCapture(){const form=editGuardForm();editGuardSnapshot=form?{view:form.id,values:editGuardValues(form)}:null}
+          function editGuardDialog(leave){
+           if(document.getElementById('unsavedEditGuard'))return;
+           const overlay=document.createElement('div');overlay.id='unsavedEditGuard';
+           overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(24,38,64,.48);display:grid;place-items:center;padding:20px';
+           overlay.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="unsavedEditTitle" style="width:min(430px,100%);background:#fffdf8;border:1px solid #dfd2b5;border-radius:20px;padding:23px;box-shadow:0 16px 50px #18264033"><h2 id="unsavedEditTitle" style="font-size:23px;color:#182640;margin:0 0 10px">Kaydedilmemiş değişiklikler</h2><p style="line-height:1.55;color:#5f5a50">Yaptığınız değişiklikleri henüz kaydetmediniz. Ne yapmak istersiniz?</p><div style="display:grid;gap:9px;margin-top:18px"><button id="unsavedSave" type="button">Kaydet ve çık</button><button id="unsavedDiscard" type="button" class="btn secondary">Değişiklikleri kaydetmeden çık</button><button id="unsavedStay" type="button" class="btn secondary">Düzenlemeye devam et</button></div></div>';
            document.body.appendChild(overlay);
-           overlay.querySelector('#recoveryDownload').onclick=()=>{
-            const raw=libraryRecoveryRaw;
-            if(raw===null){overlay.querySelector('#recoveryFeedback').textContent='İndirilecek kayıt bulunamadı.';return}
-            const blob=new Blob([raw],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-            a.href=url;a.download='kitapligim-ham-kurtarma-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+           overlay.querySelector('#unsavedStay').onclick=()=>overlay.remove();
+           overlay.querySelector('#unsavedDiscard').onclick=()=>{overlay.remove();editGuardBypass=true;try{leave()}finally{editGuardBypass=false}};
+           overlay.querySelector('#unsavedSave').onclick=()=>{
+            const form=editGuardForm(),button=form?.querySelector(form.id==='bookFormView'?'#bfSave':'#qfSave');
+            if(!button)return;
+            overlay.remove();
+            // Existing save handlers validate fields and navigate only after saving.
+            button.click();
            };
-           overlay.querySelector('#recoveryImport').onchange=async e=>{
-            const file=e.target.files?.[0];if(!file)return;
-            const feedback=overlay.querySelector('#recoveryFeedback');
-            try{
-             if(file.size>200*1024*1024)throw Error('Dosya 200 MB sınırını aşıyor.');
-             const parsed=JSON.parse(await file.text());
-             let restored;
-             if(parsed&&parsed.format==='kitapligim-backup'&&parsed.version===2&&parsed.entries&&typeof parsed.entries==='object'){
-              if(typeof parsed.entries[storeKey]!=='string')throw Error('Yedekte kitaplık verisi bulunamadı.');
-              restored=JSON.parse(parsed.entries[storeKey]);
-             }else restored=parsed;
-             if(!validLibrary(restored))throw Error('Yedek dosyasının kitap ve alıntı yapısı geçersiz.');
-             if(!confirm('Bu yedekte '+restored.books.length+' kitap ve '+restored.quotes.length+' alıntı var. Tarayıcıdaki bozuk kayıt değiştirilecek. Önce ham veriyi indirdiğinden emin ol. Devam edilsin mi?'))return;
-             // Use existing validated import handler to retain all auxiliary data and rollback logic.
-             const dt=new DataTransfer();dt.items.add(file);const input=document.querySelector('#importInput');input.files=dt.files;await input.onchange({target:input});
-            }catch(err){feedback.textContent='Geri yükleme yapılamadı: '+(err.message||'Dosya okunamadı')+'. Mevcut veri korunuyor.'}
-            finally{e.target.value=''}
-           };
-          }"""
-          assert s.count(old)==1,'startup anchor missing'
-          s=s.replace(old,new)
+          }
+          function editGuardLeave(leave){if(!editGuardBypass&&editGuardDirty()){editGuardDialog(leave);return false}leave();return true}
+          window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});
+          """
+          assert s.count(anchor)==1
+          s=s.replace(anchor,insert+anchor)
+          s=s.replace("function appGoBack(){\n const prev=navigationStack.pop();","function appGoBack(){\n if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}\n const prev=navigationStack.pop();")
+          s=s.replace("function show(id){\n const previous=activeView();","function show(id){\n const previous=activeView();\n if(!editGuardBypass&&previous!==id&&editGuardDirty()&&id!=='bookDetailView'&&id!=='libraryView'&&id!=='scanView'&&id!=='dataView'&&id!=='miniView'){editGuardDialog(()=>show(id));return}\n if(previous!==id)editGuardSnapshot=null;")
+          # Existing saves navigate to detail/library; allow those after save; intercept explicit navigation controls separately.
+          s=s.replace("$$('.navbtn').forEach(b=>b.onclick=()=>{","$$('.navbtn').forEach(b=>b.onclick=()=>{ if(editGuardDirty()){editGuardDialog(()=>b.click());return}")
+          s=s.replace("  $('#bfCancel').onclick=()=>book?renderBook(book.id):(show('libraryView'),renderLibrary());","  $('#bfCancel').onclick=()=>editGuardLeave(()=>book?renderBook(book.id):(show('libraryView'),renderLibrary()));")
+          s=s.replace("  $('#qfCancel').onclick=()=>renderBook(bookId);","  $('#qfCancel').onclick=()=>editGuardLeave(()=>renderBook(bookId));")
+          # capture after form initial values and event handlers are attached
+          s=s.replace("    setupReadingStreak();\n    if((autoFinished", "    setupReadingStreak();\n    if((autoFinished")
+          s=s.replace("  };\n}\n\nfunction askBookFinishedPlace", "  };\n  editGuardCapture();\n}\n\nfunction askBookFinishedPlace")
+          s=s.replace(" save(); renderBook(bookId)};\n}\nfunction miniEscRegExp", " save(); renderBook(bookId)};\n  editGuardCapture();\n}\nfunction miniEscRegExp")
+          # intercept direct browser history back where available; fallback beforeunload handles real page exit
+          s=s.replace("window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});","window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});")
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -90,5 +68,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Add guarded startup recovery for corrupt library data"
+          git commit -m "Warn before leaving unsaved book and quote edits"
           git push
