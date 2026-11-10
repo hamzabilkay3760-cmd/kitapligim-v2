@@ -1202,7 +1202,23 @@ function getReadingStreakData(){
  }catch{return {days:{}}}
 }
 function saveReadingStreakData(d){localStorage.setItem(readingStreakKey,JSON.stringify(d))}
-function appendReadingProgress(book,addedPages){
+function shouldCountReadingAgain(book,source,addedPages){
+ const day=getReadingStreakData().days[localDateKey()];
+ if(!day||!Number.isSafeInteger(Number(addedPages))||Number(addedPages)<=0)return true;
+ const id=String(book.id);
+ const perBook=day.bookPages&&typeof day.bookPages==='object'?day.bookPages:{};
+ const already=Math.max(0,Number(perBook[id])||0);
+ const legacy=String(day.bookId||'')===id?Math.max(0,Number(day.pages)||0):0;
+ if(!already&&!legacy)return true;
+ const sources=day.bookEntrySources&&typeof day.bookEntrySources==='object'?day.bookEntrySources:{};
+ const previous=sources[id];
+ if(previous===source)return true;
+ // Older entries have no source marker; ask rather than silently guessing.
+ return confirm('Bu kitap için bugün zaten '+(already||legacy)+' sayfa okuma kaydı var.\n\n'+
+  'Yeni '+addedPages+' sayfa daha okuduysan TAMAM seç; günlük toplama eklensin.\n'+
+  'Bu ilerleme daha önce kaydedilmiş okumayı gösteriyorsa İPTAL seç; yalnızca kitabın sayfası güncellensin.');
+}
+function appendReadingProgress(book,addedPages,source='progress'){
  const n=Number(addedPages);
  if(!Number.isSafeInteger(n)||n<=0)return true;
  const today=localDateKey(),reading=getReadingStreakData(),old=reading.days[today]||{};
@@ -1210,7 +1226,8 @@ function appendReadingProgress(book,addedPages){
   ?old.bookPages:(old.bookId?{[String(old.bookId)]:Math.max(0,Number(old.pages)||0)}:{});
  const bookId=String(book.id);
  const bookPages={...existing,[bookId]:Math.max(0,Number(existing[bookId])||0)+n};
- reading.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(Array.isArray(old.bookIds)?old.bookIds:[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages};
+ const bookEntrySources={...(old.bookEntrySources&&typeof old.bookEntrySources==='object'?old.bookEntrySources:{}),[bookId]:source};
+ reading.days[today]={...old,bookId:book.id,bookIds:[...new Set([...(Array.isArray(old.bookIds)?old.bookIds:[]),old.bookId,book.id].filter(Boolean).map(String))],pages:Math.max(0,Number(old.pages)||0)+n,at:Date.now(),bookPages,bookEntrySources};
  try{saveReadingStreakData(reading);return true}
  catch(error){console.error('Kitaplığım: günlük okuma kaydı kaydedilemedi',error);alert('Günlük okuma sayacı kaydedilemedi. Depolama alanını kontrol et.');return false}
 }
@@ -1294,8 +1311,9 @@ function setupReadingStreak(){
      const previous=Math.max(0,Number(book.currentPage)||0);
      const total=Math.max(0,Number(book.pages)||0);
      if(total&&previous+n>total){dialog.querySelector('#streakError').textContent='Bu kayıt kitabın toplam sayfa sayısını aşıyor. Önce kitap ilerlemesini kontrol et.';return;}
+     const countAgain=shouldCountReadingAgain(book,'streak',n);
      book.currentPage=String(previous+n);
-     appendReadingProgress(book,n);
+     if(countAgain)appendReadingProgress(book,n,'streak');
      save();
      close();setupReadingStreak();
      if($('#dataView')&&!$('#dataView').classList.contains('hidden')){renderMonthlyReadingCalendarSafe();renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();}
@@ -1468,7 +1486,7 @@ function renderBookForm(book=null){
     const addedPages=book&&currentRaw&&nextPage>previousPage?nextPage-previousPage:0;
     const wasFinished=book?.status==='Okudum';
     if(book) Object.assign(book,obj); else state.books.push(obj);
-    if(addedPages)appendReadingProgress(obj,addedPages);
+    if(addedPages&&shouldCountReadingAgain(obj,'book-form',addedPages))appendReadingProgress(obj,addedPages,'book-form');
     save();
     setupReadingStreak();
     if((autoFinished||!wasFinished&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);
