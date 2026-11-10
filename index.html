@@ -772,11 +772,27 @@ function renderMonthlyReadingComparison(){
   const previousAverage=previous.pages/previousMonthDays;
   const avgText=n=>n.toLocaleString('tr-TR',{maximumFractionDigits:1});
   const format=n=>n.toLocaleString('tr-TR');
+  const prevDate=new Date(today.getFullYear(),today.getMonth()-1,1);
+  const prevPrefix=prevDate.getFullYear()+'-'+String(prevDate.getMonth()+1).padStart(2,'0')+'-';
+  const comparableDays=Math.min(elapsedDays,previousMonthDays);
+  const previousSamePeriod=Object.keys(days).filter(k=>k.startsWith(prevPrefix)&&Number(k.slice(-2))<=comparableDays)
+    .reduce((sum,k)=>sum+Math.max(0,Number(days[k]?.pages)||0),0);
+  const change=current.pages-previousSamePeriod;
+  const comparisonText=previousSamePeriod===0
+    ?(current.pages>0?'Geçen ayın aynı döneminde okuma kaydı yok.':'İki dönemde de henüz okuma kaydı yok.')
+    :change===0?'Geçen ayın aynı dönemine göre aynı sayıda sayfa okudun.'
+    :change>0?'Geçen ayın aynı döneminden '+format(change)+' sayfa fazla okudun.'
+    :'Geçen ayın aynı döneminden '+format(-change)+' sayfa daha az okudun.';
   card.innerHTML='<div class="eyebrow" style="font-size:13px;font-weight:850;color:#263c55">Okuma istatistikleri</div>'+
    '<h2 class="serif" style="font-size:28px;font-weight:800;margin:6px 0 12px">Aylık karşılaştırma</h2>'+
    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
-    '<div style="background:#f7f1e6;padding:13px;border-radius:14px"><div style="font-size:12px;font-weight:800;color:#344b64">Bu ay · '+esc(monthLabel)+'</div><div style="font:700 25px Georgia,serif;margin:7px 0 3px;color:#182640">'+format(current.pages)+'</div><div class="muted" style="font-size:12px">Günde ortalama '+dailyAverageText+' sayfa</div></div>'+
-    '<div style="background:#f7f1e6;padding:13px;border-radius:14px"><div style="font-size:12px;font-weight:800;color:#344b64">Geçen ay</div><div style="font:700 25px Georgia,serif;margin:7px 0 3px;color:#182640">'+format(previous.pages)+'</div><div class="muted" style="font-size:12px">Günde ortalama '+avgText(previousAverage)+' sayfa</div></div>'+
+    '<div style="background:#f7f1e6;padding:13px;border-radius:14px"><div style="font-size:12px;font-weight:800;color:#344b64">Bu ay · '+esc(monthLabel)+'</div><div style="font:700 25px Georgia,serif;margin:7px 0 3px;color:#182640">'+format(current.pages)+'</div><div class="muted" style="font-size:12px">Takvim günü başına '+dailyAverageText+' sayfa</div></div>'+
+    '<div style="background:#f7f1e6;padding:13px;border-radius:14px"><div style="font-size:12px;font-weight:800;color:#344b64">Geçen ay</div><div style="font:700 25px Georgia,serif;margin:7px 0 3px;color:#182640">'+format(previous.pages)+'</div><div class="muted" style="font-size:12px">Takvim günü başına '+avgText(previousAverage)+' sayfa</div></div>'+
+   '</div>'+
+   '<div style="margin-top:11px;border:1px solid #e7dcc8;border-radius:12px;padding:11px 12px;background:#fbf8f1">'+
+    '<div style="font-size:11px;font-weight:800;color:#76603e">AYIN AYNI DÖNEMİ</div>'+
+    '<div style="font-size:12px;line-height:1.5;margin-top:4px;color:#182640">'+esc(comparisonText)+'</div>'+
+    '<div class="muted" style="font-size:10px;margin-top:5px">Bu ayın ilk '+elapsedDays+' günü ile geçen ayın ilk '+comparableDays+' günü karşılaştırıldı.</div>'+
    '</div>';
  }catch(e){card.innerHTML='<div class="eyebrow">Okuma istatistikleri</div><p class="muted">Aylık karşılaştırma şu anda görüntülenemiyor.</p>'}
  const journal=$('#readingJournalWeekly');if(journal&&journal.parentNode===view)view.insertBefore(card,journal.nextSibling);else view.insertBefore(card,view.querySelector('.card'));
