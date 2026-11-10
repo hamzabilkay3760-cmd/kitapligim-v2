@@ -868,6 +868,17 @@ function renderAnnualSummarySafe(){
       '<span style="font-size:9px;color:#70695d;white-space:nowrap">'+monthNames[i]+'</span></div>';
     }).join('')+'</div>'+
     '<div class="muted" style="font-size:11px;margin-top:12px">'+(peakMonth>=0?'En çok okunan ay: '+monthNames[peakMonth]+' · '+maxMonthly.toLocaleString('tr-TR')+' sayfa':'Bu yıl henüz günlük okuma kaydı bulunmuyor.')+'</div></section>';
+   const goalValue=Number(getReadingGoals()[year]);
+   const goal=Number.isSafeInteger(goalValue)&&goalValue>0?goalValue:0;
+   const goalPercent=goal?Math.min(100,Math.round(books.length/goal*100)):0;
+   const goalRemaining=Math.max(0,goal-books.length);
+   const goalCard='<section aria-label="Yıllık kitap hedefi" style="margin:12px 0;padding:14px;background:#fbf7ef;border:1px solid #e9dfcd;border-radius:16px">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div class="eyebrow" style="font-size:10px">Yıllık kitap hedefim</div>'+
+    '<strong style="font-size:13px;color:#182640">'+(goal?books.length+' / '+goal+' kitap':'Hedef belirlenmedi')+'</strong></div>'+
+    (goal?'<div role="progressbar" aria-label="Yıllık kitap hedefi ilerlemesi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+goalPercent+'" style="height:9px;border-radius:99px;background:#e6ddce;overflow:hidden;margin:11px 0 8px"><div style="height:100%;width:'+goalPercent+'%;border-radius:99px;background:#a98a4a"></div></div>'+
+    '<div class="muted" style="font-size:12px">'+(goalRemaining?'Hedefe '+goalRemaining+' kitap kaldı.':'Tebrikler, yıllık kitap hedefini tamamladın!')+'</div>':
+    '<div class="muted" style="font-size:12px;line-height:1.5;margin-top:9px">Kütüphanem ekranındaki yıllık okuma hedefinden kitap sayısı belirleyebilirsin.</div>')+
+    '</section>';
    const ids=new Set(books.map(b=>b.id));
    const quotes=state.quotes.filter(q=>ids.has(q.bookId));
    const pages=books.reduce((n,b)=>n+(Number(b.pages)||0),0);
@@ -880,7 +891,7 @@ function renderAnnualSummarySafe(){
    const tags=Object.entries(tagCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
    card.innerHTML='<div class="eyebrow">Yıllık okuma özeti</div><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 14px"><h2 class="serif" style="font-size:30px;margin:0">'+esc(year)+'</h2><select id="annualArchiveYear" aria-label="Okuma arşivi yılı" style="max-width:115px;padding:8px;border:1px solid #d8d2c8;border-radius:10px;background:#fff;color:#182640">'+years.map(y=>'<option value="'+esc(y)+'"'+(y===year?' selected':'')+'>'+esc(y)+'</option>').join('')+'</select></div>'+
-   monthlyChart+
+   monthlyChart+goalCard+
    (books.length
     ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
       '<div style="padding:13px;border-radius:14px;background:#f7f1e6"><div class="eyebrow">Bitirdiğim kitap</div><div style="font-family:Georgia,serif;font-size:28px;color:#182640;margin-top:4px">'+books.length+'</div></div>'+
