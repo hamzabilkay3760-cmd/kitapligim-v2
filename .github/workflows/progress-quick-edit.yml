@@ -1,4 +1,4 @@
-name: Kitapligim annual goal progress
+name: Kitapligim reading journey stories
 on:
   push:
     paths:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Show existing annual book goal in yearly statistics
+      - name: Add reading journey
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -20,28 +20,16 @@ jobs:
           start=s.index('function renderAnnualSummarySafe(){')
           end=s.index('let readingCalendarCursor=',start)
           part=s[start:end]
-          old="""   const ids=new Set(books.map(b=>b.id));"""
-          new="""   const goalValue=Number(getReadingGoals()[year]);
-             const goal=Number.isSafeInteger(goalValue)&&goalValue>0?goalValue:0;
-             const goalPercent=goal?Math.min(100,Math.round(books.length/goal*100)):0;
-             const goalRemaining=Math.max(0,goal-books.length);
-             const goalCard='<section aria-label="Yıllık kitap hedefi" style="margin:12px 0;padding:14px;background:#fbf7ef;border:1px solid #e9dfcd;border-radius:16px">'+
-              '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div class="eyebrow" style="font-size:10px">Yıllık kitap hedefim</div>'+
-              '<strong style="font-size:13px;color:#182640">'+(goal?books.length+' / '+goal+' kitap':'Hedef belirlenmedi')+'</strong></div>'+
-              (goal?'<div role="progressbar" aria-label="Yıllık kitap hedefi ilerlemesi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+goalPercent+'" style="height:9px;border-radius:99px;background:#e6ddce;overflow:hidden;margin:11px 0 8px"><div style="height:100%;width:'+goalPercent+'%;border-radius:99px;background:#a98a4a"></div></div>'+
-              '<div class="muted" style="font-size:12px">'+(goalRemaining?'Hedefe '+goalRemaining+' kitap kaldı.':'Tebrikler, yıllık kitap hedefini tamamladın!')+'</div>':
-              '<div class="muted" style="font-size:12px;line-height:1.5;margin-top:9px">Kütüphanem ekranındaki yıllık okuma hedefinden kitap sayısı belirleyebilirsin.</div>')+
-              '</section>';
-             const ids=new Set(books.map(b=>b.id));"""
-          assert part.count(old)==1
-          part=part.replace(old,new)
-          old="""   monthlyChart+
-             (books.length"""
-          new="""   monthlyChart+goalCard+
-             (books.length"""
-          assert part.count(old)==1
-          part=part.replace(old,new)
+          a=part.index('   const goalValue=Number(getReadingGoals()[year]);')
+          b=part.index('   const ids=new Set(books.map(b=>b.id));',a)
+          part=part[:a]+part[b:]
+          part=part.replace('   monthlyChart+goalCard+',"""   monthlyChart+'<button type="button" id="readingJourneyOpen" style="display:block;width:100%;padding:17px;margin:12px 0 15px;border:1px solid #cbb78e;border-radius:16px;background:linear-gradient(125deg,#182640,#30445f);color:#fff;text-align:left;cursor:pointer"><span style="font-size:10px;letter-spacing:.15em;color:#e3c993">YILIN HİKÂYESİ</span><span style="display:block;font:26px Georgia,serif;margin:6px 0">Okuma Yolculuğum ✦</span><span style="font-size:12px;color:#e6e0d6">7 hikâyede '+esc(year)+' yılına dönüp bak →</span></button>'+""")
+          needle=" if(yearPicker)yearPicker.onchange=()=>{annualArchiveSelectedYear=yearPicker.value;renderAnnualSummarySafe()};"
+          assert part.count(needle)==1
+          part=part.replace(needle,needle+"\n const journey=card.querySelector('#readingJourneyOpen');if(journey)journey.onclick=()=>openReadingJourney(year);")
           s=s[:start]+part+s[end:]
+          story="function openReadingJourney(year){\n const previous=document.getElementById('readingJourneyOverlay');if(previous)previous.remove();\n const days=getReadingStreakData().days||{};\n const books=state.books.filter(b=>b.status==='Okudum'&&String(b.finishedDate||'').slice(0,4)===year);\n const quotes=state.quotes.filter(q=>books.some(b=>String(b.id)===String(q.bookId)));\n const keys=Object.keys(days).filter(k=>/^\\d{4}-\\d{2}-\\d{2}$/.test(k)&&k.slice(0,4)===year&&Number(days[k]?.pages)>0).sort();\n const total=keys.reduce((n,k)=>n+Number(days[k].pages),0),monthly=Array(12).fill(0);\n keys.forEach(k=>monthly[Number(k.slice(5,7))-1]+=Number(days[k].pages));\n const months=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];\n const peak=Math.max(...monthly)>0?monthly.indexOf(Math.max(...monthly)):-1;\n const longest=books.slice().sort((a,b)=>Number(b.pages||0)-Number(a.pages||0))[0];\n const first=books.slice().sort((a,b)=>String(a.finishedDate||'').localeCompare(String(b.finishedDate||'')))[0];\n const favorite=quotes.find(q=>(q.favorite||q.isFavorite||q.favorited)&&String(q.text||q.content||'').trim());\n const favoriteBook=favorite&&state.books.find(b=>String(b.id)===String(favorite.bookId));\n const most=books.map(b=>({book:b,count:quotes.filter(q=>String(q.bookId)===String(b.id)).length})).sort((a,b)=>b.count-a.count)[0];\n let run=0,best=0,last=null;\n keys.forEach(k=>{const d=new Date(k+'T12:00:00');run=last&&Math.round((d-last)/86400000)===1?run+1:1;best=Math.max(best,run);last=d});\n const num=n=>Number(n||0).toLocaleString('tr-TR');\n const slides=[\n  ['YILIN HİKÂYESİ',year+' okuma yolculuğun',books.length+' kitap bitirdin. Bu yılın sayfalarını birlikte hatırlayalım.'],\n  ['OKUMA GÜNLÜĞÜN',num(total)+' sayfa',keys.length+' farklı günde okuma kaydettin.'],\n  ['EN UZUN KİTABIN',longest?String(longest.title||'İsimsiz kitap'):'Henüz kitap yok',longest?num(longest.pages)+' sayfa · Bu yıl bitirdiğin en uzun kitap':'Bitirdiğin kitapları burada göreceksin.'],\n  ['EN ÇOK OKUDUĞUN AY',peak>=0?months[peak]:'Henüz kayıt yok',peak>=0?num(monthly[peak])+' sayfa okudun.':'Günlük kayıtların bu hikâyeyi oluşturacak.'],\n  ['İLK BİTİRDİĞİN',first?String(first.title||'İsimsiz kitap'):'Henüz kitap yok',first?'Bitirme tarihi: '+first.finishedDate:'Kitaplarını bitirdiğinde tarihlerini kaydet.'],\n  ['FAVORİ ALINTIN',favorite?String(favorite.text||favorite.content||'').slice(0,240):'Henüz favori alıntın yok',favorite?(favoriteBook?String(favoriteBook.title||''):'Kitaplığındaki alıntı'):'Sevdiğin bir alıntıyı favorilere ekleyebilirsin.'],\n  ['OKUMA İZİN',best?best+' gün':'Yolculuğun devam ediyor',best?'Kaydettiğin en uzun ardışık okuma serisi. '+(most&&most.count?'En çok alıntı aldığın kitap: '+String(most.book.title||''):''):'Her okuma günü yeni bir iz bırakır.']\n ];\n const overlay=document.createElement('div');overlay.id='readingJourneyOverlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label',year+' okuma yolculuğu');\n overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0e1727;display:flex;align-items:center;justify-content:center;padding:10px;color:white';\n overlay.innerHTML='<div style=\"width:100%;max-width:430px;height:min(790px,94dvh);min-height:360px;border-radius:23px;overflow:hidden;background:radial-gradient(ellipse at 70% 20%,#405472,#182640 65%,#101827);box-shadow:0 20px 65px #0006;display:flex;flex-direction:column;padding:22px\">'+\n '<div id=\"journeyProgress\" style=\"display:flex;gap:4px;margin-bottom:20px\"></div>'+\n '<div style=\"display:flex;align-items:center;justify-content:space-between\"><span style=\"font-size:11px;letter-spacing:.15em;color:#d6b878\">KİTAPLIĞIM · '+year+'</span><button type=\"button\" id=\"journeyClose\" aria-label=\"Kapat\" style=\"border:0;background:#ffffff20;color:white;border-radius:50%;font-size:23px;width:36px;height:36px\">×</button></div>'+\n '<div id=\"journeyBody\" aria-live=\"polite\" style=\"flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;overflow:auto;padding:20px 4px\"></div>'+\n '<div style=\"display:flex;align-items:center;justify-content:space-between;gap:12px\"><button type=\"button\" id=\"journeyPrev\" style=\"background:#ffffff19;border:1px solid #ffffff40;border-radius:12px;color:white;padding:12px\">← Geri</button><span id=\"journeyCounter\" style=\"font-size:12px;color:#d7c9b0\"></span><button type=\"button\" id=\"journeyNext\" style=\"background:#d6b878;border:0;border-radius:12px;color:#182640;font-weight:800;padding:12px\">İleri →</button></div></div>';\n document.body.appendChild(overlay);\n const body=overlay.querySelector('#journeyBody'),progress=overlay.querySelector('#journeyProgress'),focus=document.activeElement;\n let index=0,touchX=null;\n function close(){document.removeEventListener('keydown',onKey);overlay.remove();if(focus&&focus.isConnected)focus.focus()}\n function draw(){const slide=slides[index];\n  progress.innerHTML=slides.map((_,i)=>'<span style=\"height:3px;flex:1;border-radius:8px;background:'+(i<=index?'#d6b878':'#ffffff38')+'\"></span>').join('');\n  body.innerHTML='<div style=\"font-size:11px;letter-spacing:.18em;color:#d6b878;font-weight:800\">'+esc(slide[0])+'</div>'+\n   '<div style=\"font:clamp(30px,8vw,44px)/1.2 Georgia,serif;overflow-wrap:anywhere;max-width:100%\">'+esc(slide[1])+'</div>'+\n   '<div style=\"font-size:15px;line-height:1.6;color:#e2ded7;max-width:310px;overflow-wrap:anywhere\">'+esc(slide[2])+'</div>';\n  overlay.querySelector('#journeyCounter').textContent=(index+1)+' / 7';\n  overlay.querySelector('#journeyPrev').disabled=index===0;\n  overlay.querySelector('#journeyPrev').style.opacity=index===0?'.35':'1';\n  overlay.querySelector('#journeyNext').textContent=index===6?'Bitir ✓':'İleri →';\n  if(body.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)body.animate([{opacity:.35,transform:'translateY(10px) scale(.98)'},{opacity:1,transform:'none'}],{duration:260,easing:'ease-out'});\n }\n function next(){if(index===6)close();else{index++;draw()}}\n function back(){if(index>0){index--;draw()}}\n function onKey(e){if(e.key==='Escape')close();else if(e.key==='ArrowRight')next();else if(e.key==='ArrowLeft')back()}\n overlay.querySelector('#journeyClose').onclick=close;overlay.querySelector('#journeyNext').onclick=next;overlay.querySelector('#journeyPrev').onclick=back;\n overlay.addEventListener('touchstart',e=>{touchX=e.changedTouches[0].clientX},{passive:true});\n overlay.addEventListener('touchend',e=>{if(touchX===null)return;const dx=e.changedTouches[0].clientX-touchX;touchX=null;if(Math.abs(dx)>55)(dx<0?next:back)()},{passive:true});\n document.addEventListener('keydown',onKey);draw();overlay.querySelector('#journeyClose').focus();\n}"
+          s=s.replace('function renderAnnualSummarySafe(){',story+'\nfunction renderAnnualSummarySafe(){',1)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -50,5 +38,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Show annual book goal progress in yearly statistics"
+          git commit -m "Add reading journey stories"
           git push
