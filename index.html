@@ -625,9 +625,10 @@ function show(id){
   if(incoming&&typeof incoming.animate==='function'&&!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
    if(incoming._kitapligimEntrance)incoming._kitapligimEntrance.cancel();
    incoming._kitapligimEntrance=incoming.animate([
-    {opacity:0.65,transform:'translateY(10px) scale(.965)',clipPath:'circle(32% at 50% 38%)'},
-    {opacity:1,transform:'translateY(0) scale(1)',clipPath:'circle(150% at 50% 38%)'}
-   ],{duration:360,easing:'cubic-bezier(.18,.8,.25,1)',fill:'none'});
+    {opacity:0.25,transform:'translate3d(0,18px,0) scale(.91)'},
+    {opacity:0.86,transform:'translate3d(0,-2px,0) scale(1.012)',offset:0.78},
+    {opacity:1,transform:'translate3d(0,0,0) scale(1)'}
+   ],{duration:420,easing:'cubic-bezier(.2,.78,.2,1)',fill:'none'});
   }
  }
  window.scrollTo({top:0,behavior:'instant'});
