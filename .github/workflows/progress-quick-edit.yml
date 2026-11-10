@@ -1,0 +1,46 @@
+name: Kitapligim progress quick edit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/progress-quick-edit.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Update progress edit navigation only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="const btn=item.querySelector('.progressEditBtn');if(btn)btn.onclick=()=>renderBookForm(b);"
+          new="""const btn=item.querySelector('.progressEditBtn');if(btn)btn.onclick=()=>{
+            renderBookForm(b);
+            requestAnimationFrame(()=>{
+              const field=document.getElementById('bfCurrentPage');
+              if(!field)return;
+              field.scrollIntoView({behavior:'instant',block:'center'});
+              field.focus({preventScroll:true});
+              field.select();
+            });
+          };"""
+          if old in s:
+              assert s.count(old)==1, 'Unexpected duplicate'
+              p.write_text(s.replace(old,new),encoding='utf-8')
+          elif new not in s:
+              raise SystemExit('Expected source not found; no changes made')
+          PY
+      - name: Commit targeted change
+        run: |
+          if git diff --quiet -- index.html; then echo "Already updated"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Open reading progress page field directly"
+          git push
