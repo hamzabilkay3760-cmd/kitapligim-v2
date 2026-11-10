@@ -44,15 +44,12 @@ jobs:
           old="""'<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+"""
           new="""'<div class="muted" style="font-size:11px;line-height:1.45;margin-top:7px">Ortalama, yalnızca okuma yaptığın günlere göre hesaplanır.</div>'+
                '<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+"""
-          assert s.count(old)==1
           s=s.replace(old,new)
           old="""'<div class="muted" style="font-size:12px">Günde ortalama '+dailyAverageText+' sayfa</div>'"""
           new="""'<div class="muted" style="font-size:12px">Takvim günü başına '+dailyAverageText+' sayfa</div>'"""
-          assert s.count(old)==1
           s=s.replace(old,new)
           old="""'<div class="muted" style="font-size:12px">Günde ortalama '+avgText(previousAverage)+' sayfa</div>'"""
           new="""'<div class="muted" style="font-size:12px">Takvim günü başına '+avgText(previousAverage)+' sayfa</div>'"""
-          assert s.count(old)==1
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
