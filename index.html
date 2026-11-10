@@ -701,19 +701,28 @@ function renderReadingJournalWeeklySafe(){
      return d.toLocaleDateString('tr-TR',{weekday:'short',day:'numeric',month:'short'});
    };
    const rows=allEntries.map((x,index)=>{
-     const book=state.books.find(b=>String(b.id)===String(x.bookId));
      const pages=Number(x.pages)||0;
-     const breakdown=x.bookPages&&typeof x.bookPages==='object'&&!Array.isArray(x.bookPages)&&Object.keys(x.bookPages).length?x.bookPages:(x.bookId?{[String(x.bookId)]:pages}:{});
-     const names=Object.entries(breakdown).filter(([,n])=>Number(n)>0).map(([id,n])=>{
+     const breakdown=x.bookPages&&typeof x.bookPages==='object'&&!Array.isArray(x.bookPages)&&Object.keys(x.bookPages).length
+       ?x.bookPages:(x.bookId?{[String(x.bookId)]:pages}:{});
+     const bookRows=Object.entries(breakdown).filter(([,n])=>Number(n)>0).map(([id,n])=>{
        const found=state.books.find(b=>String(b.id)===String(id));
-       return esc(found?String(found.title||'İsimsiz kitap'):'Silinmiş kitap')+' · '+Number(n)+' sayfa';
-     }).join('<span style="padding:0 4px;color:#a79c89">·</span>');
-     return '<div class="readingHistoryRow" '+(index>=14?'hidden':'')+' style="display:'+(index>=14?'none':'flex')+';align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee5d6">'+
-       '<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(fmtDate(x.key))+'</div><div class="muted" style="font-size:11px;margin-top:2px;overflow-wrap:anywhere;line-height:1.5">'+(names||esc(book?String(book.title||''):'Kitap kaydı bulunamadı'))+'</div></div>'+
-       '<div style="font-size:13px;font-weight:900;color:#182640;white-space:nowrap">'+(pages?pages+' sayfa':'Okundu')+'</div>'+
-     '</div>';
+       const title=found?String(found.title||'İsimsiz kitap'):'Kitap artık kütüphanede yok';
+       return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #eee5d6">'+
+        '<span style="min-width:0;overflow-wrap:anywhere">'+esc(title)+'</span>'+
+        '<strong style="flex-shrink:0;font-variant-numeric:tabular-nums">'+Number(n)+' sayfa</strong></div>';
+     }).join('');
+     const count=Object.entries(breakdown).filter(([,n])=>Number(n)>0).length;
+     const summary=count>1?count+' kitap':count===1?'1 kitap':'Kitap ayrıntısı yok';
+     return '<details class="readingHistoryRow" '+(index>=14?'hidden':'')+' style="display:'+(index>=14?'none':'block')+';border-top:1px solid #eee5d6">'+
+       '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;min-height:48px">'+
+        '<span style="min-width:0"><strong style="display:block;font-size:12px;color:#182640">'+esc(fmtDate(x.key))+'</strong>'+
+        '<span class="muted" style="font-size:11px">'+summary+' · Ayrıntıları gör</span></span>'+
+        '<span style="font-size:13px;font-weight:800;white-space:nowrap">'+pages+' sayfa <span aria-hidden="true" style="color:#a98a4a">⌄</span></span>'+
+       '</summary>'+
+       '<div style="padding:2px 11px 11px;background:#fbf7ef;border-radius:12px;margin-bottom:9px;font-size:12px;line-height:1.5">'+
+       (bookRows||'<div class="muted" style="padding:9px 0">Bu eski kayıt için kitap ayrıntısı bulunmuyor.</div>')+
+       '</div></details>';
    }).join('');
-
    const dayNames=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
    const weekStrip=weekKeys.map((k,i)=>{
      const entry=days[k],pages=entry?(Number(entry.pages)||0):0;
@@ -739,7 +748,7 @@ function renderReadingJournalWeeklySafe(){
  }
  const first=view.querySelector('.card');
  if(first)view.insertBefore(card,first);else view.appendChild(card);
- const more=card.querySelector('#readingHistoryMore');if(more)more.onclick=()=>{card.querySelectorAll('.readingHistoryRow[hidden]').forEach(row=>{row.hidden=false;row.style.display='flex'});more.remove()};
+ const more=card.querySelector('#readingHistoryMore');if(more)more.onclick=()=>{card.querySelectorAll('.readingHistoryRow[hidden]').forEach(row=>{row.hidden=false;row.style.display='block'});more.remove()};
 }
 
 function renderMonthlyReadingComparison(){
@@ -1973,7 +1982,7 @@ function setupBookReadingHistory(bookId){
      (rows.length>5?'<button type="button" class="btn secondary" id="bookHistoryToggle" style="margin-top:10px;width:100%;border-radius:11px">Tüm kayıtları göster ('+rows.length+')</button>':'');
    host.replaceChildren(heading);
    const toggle=heading.querySelector('#bookHistoryToggle');
-   if(toggle)toggle.onclick=()=>{const expanded=toggle.dataset.expanded==='true';heading.querySelectorAll('.bookReadingHistoryRow[hidden]').forEach(row=>{row.hidden=false;row.style.display='flex'});if(expanded){heading.querySelectorAll('.bookReadingHistoryRow').forEach((row,index)=>{if(index>=5){row.hidden=true;row.style.display='none'}})}toggle.dataset.expanded=expanded?'false':'true';toggle.textContent=expanded?'Tüm kayıtları göster ('+rows.length+')':'Daha az göster'};
+   if(toggle)toggle.onclick=()=>{const expanded=toggle.dataset.expanded==='true';heading.querySelectorAll('.bookReadingHistoryRow[hidden]').forEach(row=>{row.hidden=false;row.style.display='block'});if(expanded){heading.querySelectorAll('.bookReadingHistoryRow').forEach((row,index)=>{if(index>=5){row.hidden=true;row.style.display='none'}})}toggle.dataset.expanded=expanded?'false':'true';toggle.textContent=expanded?'Tüm kayıtları göster ('+rows.length+')':'Daha az göster'};
  }catch(e){host.replaceChildren()}
 }
 function setupRelatedBooks(bookId){
