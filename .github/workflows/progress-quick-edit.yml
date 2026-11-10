@@ -18,7 +18,7 @@ jobs:
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           start=s.index('   const rows=allEntries.map((x,index)=>{',s.index('function renderReadingJournalWeeklySafe'))
-          end=s.index("\\n   const dayNames=['Pzt'",start)
+          end=s.index('   const dayNames=',start)
           new="""   const rows=allEntries.map((x,index)=>{
                const pages=Number(x.pages)||0;
                const breakdown=x.bookPages&&typeof x.bookPages==='object'&&!Array.isArray(x.bookPages)&&Object.keys(x.bookPages).length
