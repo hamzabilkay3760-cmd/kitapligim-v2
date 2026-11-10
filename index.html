@@ -665,8 +665,13 @@ function renderReadingJournalWeeklySafe(){
    const rows=allEntries.map((x,index)=>{
      const book=state.books.find(b=>String(b.id)===String(x.bookId));
      const pages=Number(x.pages)||0;
+     const breakdown=x.bookPages&&typeof x.bookPages==='object'&&!Array.isArray(x.bookPages)&&Object.keys(x.bookPages).length?x.bookPages:(x.bookId?{[String(x.bookId)]:pages}:{});
+     const names=Object.entries(breakdown).filter(([,n])=>Number(n)>0).map(([id,n])=>{
+       const found=state.books.find(b=>String(b.id)===String(id));
+       return esc(found?String(found.title||'İsimsiz kitap'):'Silinmiş kitap')+' · '+Number(n)+' sayfa';
+     }).join('<span style="padding:0 4px;color:#a79c89">·</span>');
      return '<div class="readingHistoryRow" '+(index>=14?'hidden':'')+' style="display:'+(index>=14?'none':'flex')+';align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid #eee5d6">'+
-       '<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(fmtDate(x.key))+'</div><div class="muted" style="font-size:11px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(book?String(book.title||''):'Kitap kaydı bulunamadı')+'</div></div>'+
+       '<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#182640">'+esc(fmtDate(x.key))+'</div><div class="muted" style="font-size:11px;margin-top:2px;overflow-wrap:anywhere;line-height:1.5">'+(names||esc(book?String(book.title||''):'Kitap kaydı bulunamadı'))+'</div></div>'+
        '<div style="font-size:13px;font-weight:900;color:#182640;white-space:nowrap">'+(pages?pages+' sayfa':'Okundu')+'</div>'+
      '</div>';
    }).join('');
@@ -685,6 +690,7 @@ function renderReadingJournalWeeklySafe(){
        '<div style="padding:11px;border-radius:13px;background:#f7f1e6"><div class="eyebrow" style="font-size:9px">Toplam sayfa</div><div style="font-family:Georgia,serif;font-size:23px;color:#182640;margin-top:4px">'+totalPages+'</div></div>'+
        '<div style="padding:11px;border-radius:13px;background:#f7f1e6"><div class="eyebrow" style="font-size:9px">Günlük ort.</div><div style="font-family:Georgia,serif;font-size:23px;color:#182640;margin-top:4px">'+avg+'</div></div>'+
      '</div>'+
+     '<div class="muted" style="font-size:11px;line-height:1.45;margin-top:7px">Ortalama, yalnızca okuma yaptığın günlere göre hesaplanır.</div>'+
      '<div style="display:flex;justify-content:space-between;gap:5px;margin-top:12px">'+weekStrip+'</div>'+
      (topBook?'<div style="margin-top:11px;padding:10px 11px;border-radius:12px;background:#fbf7ee"><div class="eyebrow" style="font-size:9px">Bu hafta en çok okuduğun</div><div style="font-size:13px;font-weight:800;color:#182640;margin-top:3px">'+esc(String(topBook.title||''))+'</div></div>':'')+
      '<div style="margin-top:15px"><div class="between"><div class="eyebrow">Son okumalar</div><div class="muted" style="font-size:10px">'+allEntries.length+' kayıt</div></div>'+
