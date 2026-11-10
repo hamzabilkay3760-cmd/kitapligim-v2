@@ -1290,6 +1290,7 @@ function renderBookForm(book=null){
       saveReadingStreakData(reading);
     }
     save();
+    setupReadingStreak();
     if(autoFinished)showBookFinishedCelebration(obj.id); else renderBook(obj.id);
   };
 }
