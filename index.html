@@ -2704,7 +2704,7 @@ $('#extractInkBtn').onclick=async()=>{
  const btn=$('#extractInkBtn'),old=btn.textContent;
  try{
    btn.disabled=true;btn.textContent='Alıntı çıkarılıyor…';
-   const text=cleanText(await ocrHighlightedRegions(regions));
+   const text=cleanQuoteText(await ocrHighlightedRegions(regions));
    if(!text)throw new Error('İşaretlenen bölümden metin seçilemedi.');
    $('#ocrPanel').classList.remove('hidden');refreshBookSelect();
    $('#ocrText').value=text;
@@ -2964,6 +2964,16 @@ function wordMatchesSegment(word,seg){
  const xRelated=(ox/wx>.18)||(cx>=seg.x1&&cx<=seg.x2);
  return yRelated&&xRelated;
 }
+function cleanQuoteText(s){
+ return String(s||'')
+   .replace(/-\s*\n\s*/g,'')
+   .replace(/[ \t]{2,}/g,' ')
+   .replace(/[ \t]*\n[ \t]*/g,'\n')
+   .replace(/\n{3,}/g,'\n\n')
+   .replace(/^[|¦]\s*/,'')
+   .replace(/\s*[|¦]$/,'')
+   .trim();
+}
 function wordsToHighlightedText(words,groups){
  const selected=[];
  for(const w of words){
@@ -2982,22 +2992,28 @@ function wordsToHighlightedText(words,groups){
    if(prev&&prev.text===w.text&&Math.abs(prev.bbox.x0-w.bbox.x0)<4&&Math.abs(prev.bbox.y0-w.bbox.y0)<4)continue;
    dedup.push(w);
  }
- const byLine=[];
- for(const w of dedup){
-   const cy=(w.bbox.y0+w.bbox.y1)/2;
-   let line=byLine.find(l=>Math.abs(l.cy-cy)<Math.max(10,(w.bbox.y1-w.bbox.y0)*.65));
-   if(!line){line={cy,words:[]};byLine.push(line)}
-   line.words.push(w);line.cy=(line.cy*(line.words.length-1)+cy)/line.words.length;
+ const groupTexts=[];
+ for(const g of groups){
+   const groupWords=dedup.filter(w=>w.group===g);
+   if(!groupWords.length)continue;
+   const byLine=[];
+   for(const w of groupWords){
+     const cy=(w.bbox.y0+w.bbox.y1)/2;
+     let line=byLine.find(l=>Math.abs(l.cy-cy)<Math.max(10,(w.bbox.y1-w.bbox.y0)*.65));
+     if(!line){line={cy,words:[]};byLine.push(line)}
+     line.words.push(w);line.cy=(line.cy*(line.words.length-1)+cy)/line.words.length;
+   }
+   byLine.sort((a,b)=>a.cy-b.cy);
+   const lines=byLine.map(l=>l.words.sort((a,b)=>a.bbox.x0-b.bbox.x0).map(w=>w.text).join(' '));
+   let paragraph='';
+   for(const line of lines.map(cleanText).filter(Boolean)){
+     if(!paragraph){paragraph=line;continue}
+     if(/-$/.test(paragraph))paragraph=paragraph.slice(0,-1)+line;
+     else paragraph+=' '+line;
+   }
+   if(paragraph)groupTexts.push(paragraph);
  }
- byLine.sort((a,b)=>a.cy-b.cy);
- const lines=byLine.map(l=>l.words.sort((a,b)=>a.bbox.x0-b.bbox.x0).map(w=>w.text).join(' '));
- let out='';
- for(let line of lines.map(cleanText).filter(Boolean)){
-   if(!out){out=line;continue}
-   if(/-$/.test(out))out=out.slice(0,-1)+line;
-   else out+=' '+line;
- }
- return cleanText(out);
+ return cleanQuoteText(groupTexts.join('\n\n'));
 }
 async function ocrHighlightedRegions(regions){
  const src=$('#photoCanvas');
@@ -3027,7 +3043,7 @@ async function ocrHighlightedRegions(regions){
    const t=await ocrCanvas(cropExactRect(region));
    if(t)parts.push(t);
  }
- return cleanText(parts.join(' '));
+ return cleanQuoteText(parts.join('\n\n'));
 }
 function buildSegmentComposite(g){
  const src=$('#photoCanvas');
