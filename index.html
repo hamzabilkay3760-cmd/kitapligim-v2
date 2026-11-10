@@ -1343,7 +1343,7 @@ function renderBookForm(book=null){
     }
     save();
     setupReadingStreak();
-    if(autoFinished)showBookFinishedCelebration(obj.id); else renderBook(obj.id);
+    if((autoFinished||(!book||book.status!=='Okudum')&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);
   };
 }
 
@@ -1374,25 +1374,33 @@ function askBookFinishedPlace(initialValue=''){
 function showBookFinishedCelebration(bookId){
  const b=state.books.find(x=>String(x.id)===String(bookId));if(!b)return renderBook(bookId);
  const old=document.querySelector('#bookFinishCelebration');if(old)old.remove();
+ const qs=state.quotes.filter(q=>String(q.bookId)===String(bookId));
  const overlay=document.createElement('div');
  overlay.id='bookFinishCelebration';
- overlay.style.cssText='position:fixed;inset:0;z-index:1000;background:rgba(24,38,64,.52);backdrop-filter:blur(7px);display:grid;place-items:center;padding:22px';
- overlay.innerHTML=
-   '<div style="width:min(420px,100%);background:#fffdf8;border:1px solid #dfd2b5;border-radius:28px;padding:28px 22px 22px;text-align:center;box-shadow:0 24px 70px rgba(24,38,64,.28);position:relative;overflow:hidden">'+
-     '<div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 20% 15%,rgba(184,140,51,.16),transparent 28%),radial-gradient(circle at 85% 25%,rgba(24,38,64,.08),transparent 26%)"></div>'+
-     '<div style="position:relative">'+
-       '<div style="font-size:52px;line-height:1;margin-bottom:12px">📖✨</div>'+
-       '<div class="eyebrow">Bir kitap daha tamamlandı</div>'+
-       '<h2 class="serif" style="font-size:31px;line-height:1.15;margin:9px 0 8px;color:#182640">Tebrikler!</h2>'+
-       '<div style="font-family:Georgia,serif;font-size:20px;line-height:1.35;color:#3f3a33">'+esc(String(b.title||'Kitabın'))+'</div>'+
-       '<div class="muted" style="font-size:13px;line-height:1.55;margin:12px auto 18px;max-width:310px">Okuma yolculuğunda bir kitabı daha tamamladın. Kitap otomatik olarak <b>Okudum</b> arşivine alındı.</div>'+
-       '<button type="button" id="finishCelebrationClose" style="min-width:150px">Kitaba dön</button>'+
-     '</div>'+
-   '</div>';
+ overlay.style.cssText='position:fixed;inset:0;z-index:1000;background:rgba(24,38,64,.52);backdrop-filter:blur(7px);display:grid;place-items:center;padding:15px;overflow-y:auto';
+ overlay.innerHTML=`<div style="width:min(450px,100%);max-height:92vh;overflow-y:auto;background:#fffdf8;border:1px solid #dfd2b5;border-radius:23px;padding:24px 20px;box-shadow:0 24px 70px rgba(24,38,64,.25)">
+ <div class="eyebrow" style="text-align:center">Bir kitap daha tamamlandı</div>
+ <h2 class="serif" style="text-align:center;font-size:29px;margin:8px 0;color:#182640">Kitabından bir iz bırak</h2>
+ <p style="text-align:center;font-size:13px;color:#766e61;line-height:1.55">Kitaplığım, okuduklarının sende bıraktığı izleri saklar. Bu üç soru isteğe bağlı; sonra da tamamlayabilirsin.</p>
+ <div style="background:#f7f1e6;border-radius:14px;padding:13px;margin:14px 0;font-size:13px;color:#182640"><b>${esc(b.title||'Kitabın')}</b><div class="muted" style="margin-top:5px">${b.pages?esc(String(b.pages))+' sayfa · ':''}${qs.length} kayıtlı alıntı${b.finishedDate?' · '+esc(formatBookFinishedDate(b.finishedDate)):''}</div></div>
+ <label>En çok aklında kalan kişi veya olay neydi?</label><textarea id="memoryQuickCharacter" rows="2" placeholder="Karakter, olay veya sahne...">${esc(b.favoriteCharacter||'')}</textarea>
+ <label>Bu kitap sana ne düşündürdü veya hissettirdi?</label><textarea id="memoryQuickThought" rows="2" placeholder="Sende bıraktığı iz...">${esc(b.themes||'')}</textarea>
+ <label>Kitabı tek cümleyle nasıl hatırlamak istersin?</label><textarea id="memoryQuickSentence" rows="2" placeholder="Yıllar sonraki kendine bir not...">${esc(b.memorySentence||'')}</textarea>
+ <button id="memoryQuickSave" style="width:100%;margin-top:13px">Kitabı Hatırla arşivime kaydet</button>
+ <button id="memoryQuickSkip" class="btn secondary" style="width:100%;margin-top:9px">Şimdi değil, kitaba dön</button>
+ </div>`;
  document.body.appendChild(overlay);
  const close=()=>{overlay.remove();renderBook(bookId)};
- overlay.querySelector('#finishCelebrationClose').onclick=close;
- overlay.onclick=e=>{if(e.target===overlay)close()};
+ overlay.querySelector('#memoryQuickSkip').onclick=close;
+ overlay.querySelector('#memoryQuickSave').onclick=()=>{
+   const character=overlay.querySelector('#memoryQuickCharacter').value.trim();
+   const thought=overlay.querySelector('#memoryQuickThought').value.trim();
+   const sentence=overlay.querySelector('#memoryQuickSentence').value.trim();
+   if(character)b.favoriteCharacter=character;
+   if(thought)b.themes=thought;
+   if(sentence)b.memorySentence=sentence;
+   save();close();
+ };
 }
 function formatBookFinishedDate(v){
  if(!v)return '';
