@@ -465,7 +465,17 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 #dataView[data-reading-tab="daily"] #monthlyReadingCalendar,#dataView[data-reading-tab="daily"] #monthlyReadingComparison,#dataView[data-reading-tab="daily"] #annualSummarySafe,#dataView[data-reading-tab="daily"] #bookMemoryArchive{display:none}
 #dataView[data-reading-tab="monthly"] #readingJournalWeekly,#dataView[data-reading-tab="monthly"] #annualSummarySafe,#dataView[data-reading-tab="monthly"] #bookMemoryArchive{display:none}
 #dataView[data-reading-tab="yearly"] #readingJournalWeekly,#dataView[data-reading-tab="yearly"] #monthlyReadingCalendar,#dataView[data-reading-tab="yearly"] #monthlyReadingComparison{display:none}
-#dataView .readingStatsTabs~.eyebrow{margin-top:22px}
+#dataView .readingStatsTabs~.eyebrow{margin-top:22px}\n
+#dataView #readingJournalWeekly,#dataView #monthlyReadingComparison,#dataView #monthlyReadingCalendar,#dataView #annualSummarySafe,#dataView #bookMemoryArchive{border:1px solid #e6dccb;border-radius:22px;box-shadow:0 4px 20px rgba(24,38,64,.045);padding:clamp(15px,3.5vw,22px);overflow:hidden}
+#dataView #readingJournalWeekly .eyebrow,#dataView #monthlyReadingComparison .eyebrow,#dataView #monthlyReadingCalendar .eyebrow,#dataView #annualSummarySafe .eyebrow,#dataView #bookMemoryArchive .eyebrow{letter-spacing:.12em}
+#dataView #readingJournalWeekly .serif,#dataView #monthlyReadingComparison .serif,#dataView #monthlyReadingCalendar .serif,#dataView #annualSummarySafe .serif,#dataView #bookMemoryArchive .serif{letter-spacing:-.025em;line-height:1.15}
+#dataView #readingJournalWeekly .readingHistoryRow{align-items:flex-start!important;gap:10px!important}
+#dataView #readingJournalWeekly .readingHistoryRow>div:first-child{flex:1;min-width:0}
+#dataView #readingJournalWeekly .readingHistoryRow>div:last-child{flex-shrink:0;font-variant-numeric:tabular-nums}
+#dataView #monthlyReadingCalendar .readingCalendarDay{transition:border-color .15s,background-color .15s;min-width:0}
+#dataView #monthlyReadingComparison .card,#dataView #annualSummarySafe .card{box-shadow:none}
+@media(max-width:420px){#dataView #readingJournalWeekly,#dataView #monthlyReadingComparison,#dataView #monthlyReadingCalendar,#dataView #annualSummarySafe,#dataView #bookMemoryArchive{padding:15px;border-radius:19px}#dataView #readingJournalWeekly .serif,#dataView #monthlyReadingComparison .serif,#dataView #monthlyReadingCalendar .serif,#dataView #annualSummarySafe .serif{font-size:clamp(22px,6.2vw,28px)!important}#dataView #readingJournalWeekly .readingHistoryRow{flex-wrap:wrap}}
+
 </style>
 <style>#appSmartBack{position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;background:#fffdf8;color:#304c66;border:1px solid #d8d1c3;border-radius:999px;padding:11px 17px;box-shadow:0 4px 16px #1b283022;font-size:14px;font-weight:700;min-height:44px}#appSmartBack.hidden{display:none!important}</style>
 <nav><button class="navbtn active" data-view="library">▥<br>Kütüphanem</button><button class="navbtn" data-view="scan">⌗<br>Fotoğraf Tara</button><button class="navbtn" data-view="data">◉<br>Veriler</button></nav>
