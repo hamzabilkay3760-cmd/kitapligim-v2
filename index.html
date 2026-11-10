@@ -521,6 +521,25 @@ function editGuardDialog(leave){
 }
 function editGuardLeave(leave){if(!editGuardBypass&&editGuardDirty()){editGuardDialog(leave);return false}leave();return true}
 window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});
+// Keep an in-app browser-history entry for edit forms so mobile back gestures
+// reach the same guarded navigation as the visible Back button.
+let guardedHistorySerial=0;
+function armEditHistory(){
+ if(!window.history||!window.history.pushState)return;
+ const form=editGuardForm();
+ if(!form)return;
+ try{
+  const marker='kitapligim-edit-'+(++guardedHistorySerial);
+  history.pushState({kitapligimEditMarker:marker},'',location.href);
+ }catch(err){console.warn('Kitaplığım: mobil geri hareketi bağlanamadı',err)}
+}
+window.addEventListener('popstate',()=>{
+ if(!editGuardForm())return;
+ // Browser has already moved back one history entry. Restore the in-app
+ // sentinel before showing the warning, so Cancel remains on this page.
+ armEditHistory();
+ appGoBack();
+});
 function appGoBack(){
  if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}
  const prev=navigationStack.pop();
@@ -1411,6 +1430,7 @@ function renderBookForm(book=null){
     if((autoFinished||!wasFinished&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);
   };
   editGuardCapture();
+  if(!navigationRestoring)armEditHistory();
 }
 
 function askBookFinishedPlace(initialValue=''){
@@ -1981,6 +2001,7 @@ function renderQuoteForm(bookId,qid=null){
   $('#qfCancel').onclick=()=>editGuardLeave(()=>renderBook(bookId));
   $('#qfSave').onclick=()=>{const text=$('#qfText').value.trim(); if(!text)return alert('Alıntı metni gerekli.'); const tags=$('#qfTags').value.split(',').map(x=>x.trim()).filter(Boolean).filter((x,i,a)=>a.findIndex(y=>y.toLocaleLowerCase('tr')===x.toLocaleLowerCase('tr'))===i); const data={text,page:$('#qfPage').value.trim(),note:$('#qfNote').value.trim(),tags}; if(q)Object.assign(q,data); else state.quotes.push({id:uid(),bookId,...data,createdAt:Date.now()}); save(); renderBook(bookId)};
   editGuardCapture();
+  if(!navigationRestoring)armEditHistory();
 }
 function miniEscRegExp(s){return s.replace(/[.*+?^$()|[\]\\]/g,'\\$&')}
 function highlightMiniText(text,query){
