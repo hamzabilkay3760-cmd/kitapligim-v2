@@ -1,4 +1,4 @@
-name: Smooth story progress bars
+name: Reading story tap controls
 on:
   push:
     paths:
@@ -11,28 +11,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Animate story progress bar
+      - name: Enable tap and hold story controls
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""   bars[i].style.background='linear-gradient(to right,#d6b878 '+Math.round(fraction*100)+'%,#ffffff38 '+Math.round(fraction*100)+'%)';"""
-          new="""   bars[i].style.background='#ffffff38';
-             const fill=bars[i].firstElementChild;
-             if(fill){fill.style.transition='none';fill.style.width=Math.round(fraction*100)+'%'}"""
+          old=""" overlay.querySelector('#journeyClose').onclick=close;
+           stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;pause()});
+           stage.addEventListener('pointerup',resume);
+           stage.addEventListener('pointercancel',resume);
+           stage.addEventListener('pointerleave',resume);"""
+          new=""" overlay.querySelector('#journeyClose').onclick=close;
+           let pressStart=0,pressX=0,pressY=0,pressId=null;
+           stage.addEventListener('pointerdown',e=>{
+            if(e.target.closest('button')||closed)return;
+            pressStart=Date.now();pressX=e.clientX;pressY=e.clientY;pressId=e.pointerId;
+            pause();
+           });
+           stage.addEventListener('pointerup',e=>{
+            if(pressId!==e.pointerId)return;
+            const isTap=Date.now()-pressStart<320&&Math.hypot(e.clientX-pressX,e.clientY-pressY)<18;
+            pressId=null;
+            if(!isTap){resume();return}
+            holding=false;
+            if(e.clientX<stage.getBoundingClientRect().left+stage.getBoundingClientRect().width/2){
+             if(index>0){index--;elapsed=0;draw()}else schedule();
+            }else{
+             if(index===slides.length-1)close();else{index++;elapsed=0;draw()}
+            }
+           });
+           stage.addEventListener('pointercancel',()=>{pressId=null;resume()});
+           stage.addEventListener('pointerleave',e=>{if(pressId===e.pointerId){pressId=null;resume()}});"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="""  started=Date.now();
-            timer=setTimeout"""
-          new="""  started=Date.now();
-            const fill=progress.children[index]&&progress.children[index].firstElementChild;
-            if(fill){fill.getBoundingClientRect();fill.style.transition='width '+Math.max(1,duration-elapsed)+'ms linear';fill.style.width='100%'}
-            timer=setTimeout"""
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          old="""progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38"></span>').join('');"""
-          new="""progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38;overflow:hidden"><span style="display:block;height:100%;width:0;background:#d6b878"></span></span>').join('');"""
+          old="""<span style="font-size:12px;color:#d7c9b0">Durdurmak için ekrana basılı tut</span>"""
+          new="""<span style="font-size:12px;color:#d7c9b0">Sol: geri · Sağ: ileri · Basılı tut: duraklat</span>"""
           assert s.count(old)==1
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
@@ -49,5 +63,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Animate story playback progress"
+          git commit -m "Enable tap navigation in auto playing reading stories"
           git push
