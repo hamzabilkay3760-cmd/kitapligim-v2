@@ -261,6 +261,23 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
  #bookDetailView #quotesList>.card .quote{font-size:18px;line-height:1.65}
  #bookDetailView #quoteTagFilters{padding:10px!important}
 }
+
+/* Book-detail quotes: calm editorial cards, scoped to this screen only. */
+#bookDetailView #quotesList{display:grid;gap:12px}
+#bookDetailView #quotesList>.card{margin:0;padding:19px 20px;border-radius:17px;border:1px solid #e9e2d6;background:#fffdfa;box-shadow:0 3px 14px rgba(24,38,64,.035);min-width:0}
+#bookDetailView #quotesList>.card>.between{gap:10px;align-items:center;flex-wrap:wrap}
+#bookDetailView #quotesList>.card>.between>div:last-child{display:flex;align-items:center;flex-wrap:wrap;gap:5px}
+#bookDetailView #quotesList>.card>.between .btn{padding:7px 10px;font-size:11px;min-height:33px;border-radius:9px;margin:0}
+#bookDetailView #quotesList .quoteFavoriteBtn{min-width:36px!important;padding:5px 8px!important;font-size:19px!important;margin-right:3px!important}
+#bookDetailView #quotesList .quote{margin:15px 0 0;border-left:2px solid #c8ad76;padding:2px 0 2px 16px;font-family:Georgia,serif;font-size:clamp(18px,2.8vw,21px);line-height:1.68;color:#293344;overflow-wrap:anywhere}
+#bookDetailView #quotesList .quoteTags{margin-top:14px!important}
+#bookDetailView #quotesList .quoteTags span{font-weight:600!important;background:#f7f2e8!important;border-color:#e8decc!important;color:#78603c!important}
+#bookDetailView #quotesList .note{background:#f8f6f0;border:1px solid #eee8dc;border-radius:11px;padding:12px 14px;margin-top:13px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+#bookDetailView #quoteFavoriteFilters{gap:7px!important;flex-wrap:wrap!important}
+#bookDetailView #quoteFavoriteFilters button{border-radius:999px;padding:8px 13px;font-size:12px}
+#bookDetailView #quoteTagFilters{border:1px solid #eae3d7!important;background:#fffdfa!important;border-radius:14px!important;padding:12px!important}
+#bookDetailView #quoteTagFilters .quoteTagBtn{border-radius:999px;white-space:nowrap;padding:8px 12px;font-size:12px}
+@media(max-width:520px){#bookDetailView #quotesList>.card{padding:15px 14px}#bookDetailView #quotesList .quote{padding-left:12px;margin-top:12px}#bookDetailView #quotesList>.card>.between .btn{padding:7px 9px}}
 </style>
 </head>
 <body>
