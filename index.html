@@ -875,7 +875,9 @@ function openReadingJourney(year){
   const bars=progress.children;
   for(let i=0;i<bars.length;i++){
    const fraction=i<index?1:i>index?0:Math.min(1,elapsed/duration);
-   bars[i].style.background='linear-gradient(to right,#d6b878 '+Math.round(fraction*100)+'%,#ffffff38 '+Math.round(fraction*100)+'%)';
+   bars[i].style.background='#ffffff38';
+   const fill=bars[i].firstElementChild;
+   if(fill){fill.style.transition='none';fill.style.width=Math.round(fraction*100)+'%'}
   }
  }
  function close(){
@@ -888,13 +890,15 @@ function openReadingJourney(year){
   stopTimer();updateBars();
   if(holding||document.hidden||closed)return;
   started=Date.now();
+  const fill=progress.children[index]&&progress.children[index].firstElementChild;
+  if(fill){fill.getBoundingClientRect();fill.style.transition='width '+Math.max(1,duration-elapsed)+'ms linear';fill.style.width='100%'}
   timer=setTimeout(()=>{elapsed=duration;updateBars();if(index===slides.length-1)close();else{index++;elapsed=0;draw()}},Math.max(1,duration-elapsed));
  }
  function pause(){if(holding||closed)return;holding=true;if(timer!==null)elapsed=Math.min(duration,elapsed+Date.now()-started);stopTimer();updateBars()}
  function resume(){if(!holding||closed)return;holding=false;schedule()}
  function draw(){
   const slide=slides[index];
-  progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38"></span>').join('');
+  progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38;overflow:hidden"><span style="display:block;height:100%;width:0;background:#d6b878"></span></span>').join('');
   body.innerHTML='<div style="font-size:11px;letter-spacing:.18em;color:#d6b878;font-weight:800">'+esc(slide[0])+'</div>'+
    '<div style="font:clamp(30px,8vw,44px)/1.2 Georgia,serif;overflow-wrap:anywhere;max-width:100%">'+esc(slide[1])+'</div>'+
    '<div style="font-size:15px;line-height:1.6;color:#e2ded7;max-width:310px;overflow-wrap:anywhere">'+esc(slide[2])+'</div>';
