@@ -416,7 +416,7 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
 
   <section id="dataView" class="hidden">
     <div class="eyebrow">Yedekleme</div><h1 class="title">Veriler</h1>
-    <div class="card"><h2 class="serif">Yedeğini al</h2><p class="muted">Kitaplar ve alıntılar cihazınızın tarayıcısında saklanır. Tarayıcı verileri silinirse kaybolabilir.</p><div class="actions"><button id="exportBtn">JSON dışa aktar</button><label for="importInput" class="btn secondary">Yedeği geri yükle</label></div><input id="importInput" class="hidden" type="file" accept="application/json"></div>
+    <div class="card"><h2 class="serif">Yedeğini al</h2><p class="muted">Kitaplar ve alıntılar cihazınızın tarayıcısında saklanır. Tarayıcı verileri silinirse kaybolabilir.</p><div id="backupAssurance" style="background:#f8f5ed;border:1px solid #e6dccb;border-radius:13px;padding:13px 15px;margin:14px 0"><strong style="font-size:14px;color:#182640">Yedekleme güvencesi</strong><p id="backupAssuranceText" class="muted" style="font-size:12px;line-height:1.6;margin:7px 0 0"></p></div><div class="actions"><button id="exportBtn">JSON dışa aktar</button><label for="importInput" class="btn secondary">Yedeği geri yükle</label></div><input id="importInput" class="hidden" type="file" accept="application/json"></div>
   </section>
 
   <section id="bookFormView" class="hidden"></section>
@@ -2810,6 +2810,16 @@ const backupDate=()=>new Date().toISOString().slice(0,10);
 const backupStatus=document.createElement('p');backupStatus.className='muted';backupStatus.setAttribute('role','status');backupStatus.style.marginTop='12px';
 $('#importInput').parentElement.appendChild(backupStatus);
 const showBackupStatus=message=>{backupStatus.textContent=message};
+const backupLastDownloadKey='kitapligim_backup_last_download';
+function refreshBackupAssurance(){
+ const target=document.querySelector('#backupAssuranceText');if(!target)return;
+ const stamp=localStorage.getItem(backupLastDownloadKey),date=stamp?new Date(stamp):null;
+ if(!date||isNaN(date.getTime())){target.textContent='Bu cihazda henüz yedek indirme kaydı yok. Kitaplığını korumak için JSON yedeğini indirip güvenli bir yerde sakla.';return}
+ const days=Math.max(0,Math.floor((Date.now()-date.getTime())/86400000));
+ const formatted=date.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+ target.textContent='Son yedek indirme kaydı: '+formatted+'. '+(days>=30?'30 günden uzun süre geçmiş. Yeni bir yedek almanı öneririz.':days>=7?'Bir haftadan uzun süre geçmiş. Yeni kitaplar eklediysen yedeğini güncelle.':'Yedekleme kaydın güncel görünüyor.')+' Bu tarih yalnızca bu cihazda dosya indirme işleminin başlatıldığını gösterir; dosyanın güvenli yerde saklandığını doğrulamaz.';
+}
+refreshBackupAssurance();
 const validLibrary=obj=>obj&&typeof obj==='object'&&!Array.isArray(obj)&&Array.isArray(obj.books)&&Array.isArray(obj.quotes)&&obj.books.every(b=>b&&typeof b==='object'&&!Array.isArray(b)&&b.id!=null)&&obj.quotes.every(q=>q&&typeof q==='object'&&!Array.isArray(q)&&q.id!=null);
 $('#exportBtn').onclick=()=>{
  try{
@@ -2817,7 +2827,7 @@ $('#exportBtn').onclick=()=>{
   const data={format:'kitapligim-backup',version:2,createdAt:new Date().toISOString(),entries};
   if(!entries[storeKey])data.entries[storeKey]=JSON.stringify(state);
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='kitapligim-yedek-'+backupDate()+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='kitapligim-yedek-'+backupDate()+'.json';document.body.appendChild(a);a.click();a.remove();localStorage.setItem(backupLastDownloadKey,new Date().toISOString());refreshBackupAssurance();setTimeout(()=>URL.revokeObjectURL(url),60000);
   showBackupStatus('Yedek dosyanız hazır. Dosyayı güvenli bir yerde saklayın.');
  }catch(err){showBackupStatus('Yedek oluşturulamadı. Tarayıcı depolama alanını kontrol edin.')}
 };
