@@ -3015,7 +3015,76 @@ function wordsToHighlightedText(words,groups){
  }
  return cleanQuoteText(groupTexts.join('\n\n'));
 }
+let paddleOcrPromise=null;
+async function getPaddleOcr(){
+ if(paddleOcrPromise)return paddleOcrPromise;
+ paddleOcrPromise=(async()=>{
+   setStatus('Yeni Türkçe OCR motoru hazırlanıyor…','warn');
+   const mod=await import('https://esm.sh/@paddleocr/paddleocr-js@0.4.2?bundle');
+   if(!mod||!mod.PaddleOCR)throw new Error('PaddleOCR yüklenemedi');
+   return mod.PaddleOCR.create({
+     lang:'tr',
+     ocrVersion:'PP-OCRv5',
+     worker:false,
+     ortOptions:{
+       backend:'wasm',
+       wasmPaths:'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/',
+       numThreads:1,
+       simd:true
+     }
+   });
+ })().catch(err=>{paddleOcrPromise=null;throw err});
+ return paddleOcrPromise;
+}
+function cropRegionForPaddle(rect){
+ const src=$('#photoCanvas');
+ const rw=Math.max(1,rect.x2-rect.x1),rh=Math.max(1,rect.y2-rect.y1);
+ const padX=Math.max(8,Math.round(Math.max(inkWidth()*1.2,rw*.025)));
+ const padY=Math.max(16,Math.round(Math.max(inkWidth()*2.3,rh*.95)));
+ const x1=Math.max(0,Math.floor(rect.x1-padX)),x2=Math.min(src.width,Math.ceil(rect.x2+padX));
+ const y1=Math.max(0,Math.floor(rect.y1-padY)),y2=Math.min(src.height,Math.ceil(rect.y2+padY));
+ const w=Math.max(1,x2-x1),h=Math.max(1,y2-y1);
+ const raw=document.createElement('canvas');raw.width=w;raw.height=h;
+ const rctx=ctx2d(raw,true);rctx.fillStyle='white';rctx.fillRect(0,0,w,h);
+ rctx.drawImage(src,x1,y1,w,h,0,0,w,h);
+ const scale=Math.max(1.4,Math.min(3.2,150/Math.max(1,h)));
+ const out=document.createElement('canvas');
+ out.width=Math.max(1,Math.round(w*scale));out.height=Math.max(1,Math.round(h*scale));
+ const octx=ctx2d(out,true);octx.fillStyle='white';octx.fillRect(0,0,out.width,out.height);
+ octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';
+ octx.drawImage(raw,0,0,out.width,out.height);
+ return out;
+}
+async function paddleOcrHighlightedRegions(regions){
+ const ocr=await getPaddleOcr();
+ const canvases=regions.map(cropRegionForPaddle);
+ setStatus('İşaretlediğiniz satırlar yeni OCR motoruyla okunuyor…','warn');
+ const results=await ocr.predict(canvases,{
+   textDetLimitSideLen:1280,
+   textDetLimitType:'max',
+   textRecScoreThresh:.25
+ });
+ const parts=[];
+ for(const result of results||[]){
+   const items=[...((result&&result.items)||[])].sort((a,b)=>{
+     const ay=Math.min(...(a.poly||[[0,0]]).map(p=>p[1]||0)),by=Math.min(...(b.poly||[[0,0]]).map(p=>p[1]||0));
+     if(Math.abs(ay-by)>10)return ay-by;
+     const ax=Math.min(...(a.poly||[[0,0]]).map(p=>p[0]||0)),bx=Math.min(...(b.poly||[[0,0]]).map(p=>p[0]||0));
+     return ax-bx;
+   });
+   const text=cleanQuoteText(items.filter(i=>!Number.isFinite(i.score)||i.score>=.2).map(i=>i.text||'').join(' '));
+   if(text)parts.push(text);
+ }
+ return cleanQuoteText(parts.join('\n\n'));
+}
 async function ocrHighlightedRegions(regions){
+ try{
+   const paddle=await paddleOcrHighlightedRegions(regions);
+   if(paddle)return paddle;
+ }catch(err){
+   console.warn('PaddleOCR kullanılamadı, Tesseract yedeğine geçiliyor',err);
+   setStatus('Yeni OCR motoru açılamadı; mevcut motor deneniyor…','warn');
+ }
  const src=$('#photoCanvas');
  const maxDim=1800;
  const scale=Math.min(1,maxDim/Math.max(src.width,src.height));
