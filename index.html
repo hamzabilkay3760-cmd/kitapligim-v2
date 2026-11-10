@@ -494,13 +494,43 @@ function restoreAppScreen(entry){
   else {show(entry.view);if(entry.view==='libraryView')renderLibrary();if(entry.view==='scanView')refreshBookSelect();}
  }finally{navigationRestoring=false;updateNavigationControls()}
 }
+// Guard unsaved edits on book and quote forms without changing their existing save logic.
+let editGuardSnapshot=null,editGuardBypass=false;
+function editGuardForm(){const id=activeView();return id==='bookFormView'||id==='quoteFormView'?document.getElementById(id):null}
+function editGuardValues(form){
+ if(!form)return '';
+ return JSON.stringify([...form.querySelectorAll('input,textarea,select')].filter(el=>el.type!=='file'&&el.type!=='button').map(el=>[el.id,el.value,el.type==='checkbox'?el.checked:null]).concat([...form.querySelectorAll('input[type=file]')].map(el=>[el.id,el.files?.[0]?.name||'',el.files?.[0]?.size||0])));
+}
+function editGuardDirty(){const form=editGuardForm();return !!(form&&editGuardSnapshot&&editGuardSnapshot.view===form.id&&editGuardValues(form)!==editGuardSnapshot.values)}
+function editGuardCapture(){const form=editGuardForm();editGuardSnapshot=form?{view:form.id,values:editGuardValues(form)}:null}
+function editGuardDialog(leave){
+ if(document.getElementById('unsavedEditGuard'))return;
+ const overlay=document.createElement('div');overlay.id='unsavedEditGuard';
+ overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(24,38,64,.48);display:grid;place-items:center;padding:20px';
+ overlay.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="unsavedEditTitle" style="width:min(430px,100%);background:#fffdf8;border:1px solid #dfd2b5;border-radius:20px;padding:23px;box-shadow:0 16px 50px #18264033"><h2 id="unsavedEditTitle" style="font-size:23px;color:#182640;margin:0 0 10px">Kaydedilmemiş değişiklikler</h2><p style="line-height:1.55;color:#5f5a50">Yaptığınız değişiklikleri henüz kaydetmediniz. Ne yapmak istersiniz?</p><div style="display:grid;gap:9px;margin-top:18px"><button id="unsavedSave" type="button">Kaydet ve çık</button><button id="unsavedDiscard" type="button" class="btn secondary">Değişiklikleri kaydetmeden çık</button><button id="unsavedStay" type="button" class="btn secondary">Düzenlemeye devam et</button></div></div>';
+ document.body.appendChild(overlay);
+ overlay.querySelector('#unsavedStay').onclick=()=>overlay.remove();
+ overlay.querySelector('#unsavedDiscard').onclick=()=>{overlay.remove();editGuardBypass=true;try{leave()}finally{editGuardBypass=false}};
+ overlay.querySelector('#unsavedSave').onclick=()=>{
+  const form=editGuardForm(),button=form?.querySelector(form.id==='bookFormView'?'#bfSave':'#qfSave');
+  if(!button)return;
+  overlay.remove();
+  // Existing save handlers validate fields and navigate only after saving.
+  button.click();
+ };
+}
+function editGuardLeave(leave){if(!editGuardBypass&&editGuardDirty()){editGuardDialog(leave);return false}leave();return true}
+window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});
 function appGoBack(){
+ if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}
  const prev=navigationStack.pop();
  if(prev)restoreAppScreen(prev);else {navigationRestoring=true;show('libraryView');renderLibrary();navigationRestoring=false;}
  updateNavigationControls();
 }
 function show(id){
  const previous=activeView();
+ if(!editGuardBypass&&previous!==id&&editGuardDirty()&&id!=='bookDetailView'&&id!=='libraryView'&&id!=='scanView'&&id!=='dataView'&&id!=='miniView'){editGuardDialog(()=>show(id));return}
+ if(previous!==id)editGuardSnapshot=null;
  if(!navigationRestoring&&previous!==id){
   navigationStack.push({view:previous,bookId:currentBookId});
   if(navigationStack.length>25)navigationStack.shift();
@@ -519,7 +549,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  updateNavigationControls();
 });
 
-$$('.navbtn').forEach(b=>b.onclick=()=>{ $$('.navbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); show(b.dataset.view+'View'); if(b.dataset.view==='library') renderLibrary(); if(b.dataset.view==='scan') refreshBookSelect(); if(b.dataset.view==='data'){renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();renderAnnualSummarySafe();renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();}});
+$$('.navbtn').forEach(b=>b.onclick=()=>{ if(editGuardDirty()){editGuardDialog(()=>b.click());return} $$('.navbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); show(b.dataset.view+'View'); if(b.dataset.view==='library') renderLibrary(); if(b.dataset.view==='scan') refreshBookSelect(); if(b.dataset.view==='data'){renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();renderAnnualSummarySafe();renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();}});
 function esc(s=''){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':'&quot;',"'":"&#39;"}[m]))}
 function relativeBookTime(ts){
  if(!ts)return '';
@@ -1341,7 +1371,7 @@ function renderBookForm(book=null){
   toggleFinishedFields();
   toggleReadingProgress();
   $('#bfCover').onchange=async()=>{const f=$('#bfCover').files[0];if(f){const url=await fileToDataURL(f);$('#coverPreviewWrap').innerHTML=`<img class="coverPreview" src="${url}">`}};
-  $('#bfCancel').onclick=()=>book?renderBook(book.id):(show('libraryView'),renderLibrary());
+  $('#bfCancel').onclick=()=>editGuardLeave(()=>book?renderBook(book.id):(show('libraryView'),renderLibrary()));
   if(book) $('#bfDelete').onclick=()=>{if(confirm('Bu kitap ve kitaba ait tüm alıntılar silinsin mi?')){state.books=state.books.filter(x=>x.id!==book.id);state.quotes=state.quotes.filter(q=>q.bookId!==book.id);save();show('libraryView');renderLibrary()}};
   $('#bfSave').onclick=async()=>{
     const title=$('#bfTitle').value.trim(); if(!title)return alert('Kitap adı gerekli.');
@@ -1380,6 +1410,7 @@ function renderBookForm(book=null){
     setupReadingStreak();
     if((autoFinished||!wasFinished&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);
   };
+  editGuardCapture();
 }
 
 function askBookFinishedPlace(initialValue=''){
@@ -1947,8 +1978,9 @@ function renderQuoteForm(bookId,qid=null){
   const b=state.books.find(x=>x.id===bookId), q=state.quotes.find(x=>x.id===qid); if(!b)return;
   show('quoteFormView');
   $('#quoteFormView').innerHTML=`<div class="eyebrow">${esc(b.title)}</div><h1 class="title">${q?'Alıntıyı düzenle':'Alıntı ekle'}</h1><div class="card"><label>Alıntı metni *</label><textarea id="qfText" placeholder="Kitapta önemli bulduğunuz bölümü yazın...">${esc(q?.text||'')}</textarea><div class="grid"><div><label>Sayfa numarası</label><input id="qfPage" inputmode="numeric" value="${esc(String(q?.page||''))}" placeholder="31"></div><div></div></div><label>Etiketler</label><input id="qfTags" value="${esc(Array.isArray(q?.tags)?q.tags.join(', '):'')}" placeholder="Örn. psikoloji, yalnızlık, aile"><div class="muted" style="font-size:12px;margin-top:8px;margin-bottom:18px;line-height:1.35">Birden fazla etiketi virgülle ayırabilirsiniz.</div><label>Kişisel not</label><textarea id="qfNote" placeholder="Bu alıntı size ne düşündürdü?">${esc(q?.note||'')}</textarea><div class="formActions"><button id="qfSave">${q?'Değişiklikleri kaydet':'Alıntıyı kaydet'}</button><button id="qfCancel" class="btn secondary">Vazgeç</button></div></div>`;
-  $('#qfCancel').onclick=()=>renderBook(bookId);
+  $('#qfCancel').onclick=()=>editGuardLeave(()=>renderBook(bookId));
   $('#qfSave').onclick=()=>{const text=$('#qfText').value.trim(); if(!text)return alert('Alıntı metni gerekli.'); const tags=$('#qfTags').value.split(',').map(x=>x.trim()).filter(Boolean).filter((x,i,a)=>a.findIndex(y=>y.toLocaleLowerCase('tr')===x.toLocaleLowerCase('tr'))===i); const data={text,page:$('#qfPage').value.trim(),note:$('#qfNote').value.trim(),tags}; if(q)Object.assign(q,data); else state.quotes.push({id:uid(),bookId,...data,createdAt:Date.now()}); save(); renderBook(bookId)};
+  editGuardCapture();
 }
 function miniEscRegExp(s){return s.replace(/[.*+?^$()|[\]\\]/g,'\\$&')}
 function highlightMiniText(text,query){
