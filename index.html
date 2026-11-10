@@ -417,6 +417,7 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
   <section id="quoteFormView" class="hidden"></section>
   <section id="miniView" class="hidden"></section>
 </main>
+<style>#appSmartBack{position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;background:#fffdf8;color:#304c66;border:1px solid #d8d1c3;border-radius:999px;padding:11px 17px;box-shadow:0 4px 16px #1b283022;font-size:14px;font-weight:700;min-height:44px}#appSmartBack.hidden{display:none!important}</style>
 <nav><button class="navbtn active" data-view="library">▥<br>Kütüphanem</button><button class="navbtn" data-view="scan">⌗<br>Fotoğraf Tara</button><button class="navbtn" data-view="data">◉<br>Veriler</button></nav>
 
 <script>
@@ -432,7 +433,51 @@ const views=['libraryView','scanView','dataView','bookFormView','bookDetailView'
 let libraryFilter='Tümü';
 const librarySortKey='kitapligim_library_sort';
 let librarySort=localStorage.getItem(librarySortKey)||'activity';
-function show(id){views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id)); window.scrollTo({top:0,behavior:'smooth'})}
+let navigationStack=[],navigationRestoring=false;
+function activeView(){return views.find(v=>!$('#'+v).classList.contains('hidden'))||'libraryView'}
+function updateNavigationControls(){
+ const back=$('#appSmartBack');if(!back)return;
+ back.classList.toggle('hidden',navigationStack.length===0);
+ const current=activeView();
+ const root=current==='libraryView'?'library':current==='scanView'?'scan':current==='dataView'?'data':'';
+ $$('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===root));
+}
+function restoreAppScreen(entry){
+ if(!entry)return;
+ navigationRestoring=true;
+ try{
+  if(entry.view==='bookDetailView'&&entry.bookId&&state.books.some(b=>b.id===entry.bookId))renderBook(entry.bookId);
+  else if(entry.view==='miniView'&&entry.bookId&&state.books.some(b=>b.id===entry.bookId))renderMini(entry.bookId);
+  else if(entry.view==='bookFormView')renderBookForm(entry.bookId?state.books.find(b=>b.id===entry.bookId)||null:null);
+  else if(entry.view==='quoteFormView'&&entry.bookId)renderQuoteForm(entry.bookId);
+  else {show(entry.view);if(entry.view==='libraryView')renderLibrary();if(entry.view==='scanView')refreshBookSelect();}
+ }finally{navigationRestoring=false;updateNavigationControls()}
+}
+function appGoBack(){
+ const prev=navigationStack.pop();
+ if(prev)restoreAppScreen(prev);else {navigationRestoring=true;show('libraryView');renderLibrary();navigationRestoring=false;}
+ updateNavigationControls();
+}
+function show(id){
+ const previous=activeView();
+ if(!navigationRestoring&&previous!==id){
+  navigationStack.push({view:previous,bookId:currentBookId});
+  if(navigationStack.length>25)navigationStack.shift();
+ }
+ views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id));
+ window.scrollTo({top:0,behavior:'instant'});
+ updateNavigationControls();
+}
+document.addEventListener('DOMContentLoaded',()=>{
+ const back=document.createElement('button');
+ back.id='appSmartBack';back.type='button';back.className='hidden';
+ back.setAttribute('aria-label','Önceki ekrana dön');
+ back.textContent='← Geri';
+ back.onclick=appGoBack;
+ document.body.appendChild(back);
+ updateNavigationControls();
+});
+
 $$('.navbtn').forEach(b=>b.onclick=()=>{ $$('.navbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); show(b.dataset.view+'View'); if(b.dataset.view==='library') renderLibrary(); if(b.dataset.view==='scan') refreshBookSelect(); if(b.dataset.view==='data'){renderReadingJournalWeeklySafe();renderMonthlyReadingComparison();renderAnnualSummarySafe();renderMonthlyReadingCalendarSafe();renderBookMemoryArchive();}});
 function esc(s=''){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':'&quot;',"'":"&#39;"}[m]))}
 function relativeBookTime(ts){
