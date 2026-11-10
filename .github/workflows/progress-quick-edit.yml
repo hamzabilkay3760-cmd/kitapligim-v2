@@ -1,4 +1,4 @@
-name: Kitapligim compact memory quotes
+name: Kitapligim backup assurance
 on:
   push:
     paths:
@@ -11,26 +11,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Clamp memory quotes and link to full archive
+      - name: Add backup assurance indicator
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""${selected.length?selected.map(q=>'<div style="background:#f7f1e6;border-radius:13px;padding:12px;margin-bottom:9px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:#302f2b">'+esc(String(q.text||''))+'<div class="muted" style="font-family:system-ui;font-size:11px;margin-top:6px">Sayfa '+esc(String(q.page||'—'))+'</div></div>').join(''):'<p class="muted" style="font-size:13px">Bu kitap için henüz alıntı kaydedilmemiş.</p>'}"""
-          new="""${selected.length?selected.map((q,i)=>'<div class="memoryRevisitQuote" data-quote-index="'+i+'" style="background:#f7f1e6;border-radius:13px;padding:12px;margin-bottom:9px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:#302f2b;cursor:pointer" role="button" tabindex="0" aria-label="Alıntının tamamını aç"><div class="memoryQuoteText" style="display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;white-space:pre-wrap">'+esc(String(q.text||''))+'</div><div class="muted" style="font-family:system-ui;font-size:11px;margin-top:6px">Sayfa '+esc(String(q.page||'—'))+' · Tamamını okumak için dokun</div></div>').join(''):'<p class="muted" style="font-size:13px">Bu kitap için henüz alıntı kaydedilmemiş.</p>'}
-           ${quotes.length?'<button id="memoryRevisitAllQuotes" class="btn secondary" style="width:100%;margin-top:5px">Tüm alıntılarımı gör ('+quotes.length+')</button>':''}"""
-          assert s.count(old)==1, 'quote block mismatch'
+          old='<div class="card"><h2 class="serif">Yedeğini al</h2><p class="muted">Kitaplar ve alıntılar cihazınızın tarayıcısında saklanır. Tarayıcı verileri silinirse kaybolabilir.</p><div class="actions">'
+          new='<div class="card"><h2 class="serif">Yedeğini al</h2><p class="muted">Kitaplar ve alıntılar cihazınızın tarayıcısında saklanır. Tarayıcı verileri silinirse kaybolabilir.</p><div id="backupAssurance" style="background:#f8f5ed;border:1px solid #e6dccb;border-radius:13px;padding:13px 15px;margin:14px 0"><strong style="font-size:14px;color:#182640">Yedekleme güvencesi</strong><p id="backupAssuranceText" class="muted" style="font-size:12px;line-height:1.6;margin:7px 0 0"></p></div><div class="actions">'
+          assert s.count(old)==1,'backup UI anchor missing'
           s=s.replace(old,new)
-          old="overlay.querySelector('#memoryRevisitClose').onclick=close;"
-          new="""overlay.querySelector('#memoryRevisitClose').onclick=close;
-           overlay.querySelectorAll('.memoryRevisitQuote').forEach(card=>{
-            const expand=()=>{const txt=card.querySelector('.memoryQuoteText');if(!txt)return;const open=txt.style.webkitLineClamp==='unset';txt.style.webkitLineClamp=open?'3':'unset';card.querySelector('.muted').textContent='Sayfa '+String(selected[Number(card.dataset.quoteIndex)]?.page||'—')+(open?' · Tamamını okumak için dokun':' · Kısaltmak için dokun')};
-            card.onclick=expand;card.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();expand()}};
-           });
-           const allQuotes=overlay.querySelector('#memoryRevisitAllQuotes');
-           if(allQuotes)allQuotes.onclick=()=>{close();const target=document.querySelector('.bookDetailQuotesHead')||document.querySelector('#quotesList');if(target)target.scrollIntoView({behavior:'smooth',block:'start'})};"""
-          assert s.count(old)==1
+          old="const showBackupStatus=message=>{backupStatus.textContent=message};"
+          new="""const showBackupStatus=message=>{backupStatus.textContent=message};
+          const backupLastDownloadKey='kitapligim_backup_last_download';
+          function refreshBackupAssurance(){
+           const target=document.querySelector('#backupAssuranceText');if(!target)return;
+           const stamp=localStorage.getItem(backupLastDownloadKey),date=stamp?new Date(stamp):null;
+           if(!date||isNaN(date.getTime())){target.textContent='Bu cihazda henüz yedek indirme kaydı yok. Kitaplığını korumak için JSON yedeğini indirip güvenli bir yerde sakla.';return}
+           const days=Math.max(0,Math.floor((Date.now()-date.getTime())/86400000));
+           const formatted=date.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'});
+           target.textContent='Son yedek indirme kaydı: '+formatted+'. '+(days>=30?'30 günden uzun süre geçmiş. Yeni bir yedek almanı öneririz.':days>=7?'Bir haftadan uzun süre geçmiş. Yeni kitaplar eklediysen yedeğini güncelle.':'Yedekleme kaydın güncel görünüyor.')+' Bu tarih yalnızca bu cihazda dosya indirme işleminin başlatıldığını gösterir; dosyanın güvenli yerde saklandığını doğrulamaz.';
+          }
+          refreshBackupAssurance();"""
+          assert s.count(old)==1,'status anchor missing'
+          s=s.replace(old,new)
+          old="a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);"
+          new="a.click();a.remove();localStorage.setItem(backupLastDownloadKey,new Date().toISOString());refreshBackupAssurance();setTimeout(()=>URL.revokeObjectURL(url),60000);"
+          assert s.count(old)==1,'download anchor missing'
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
@@ -40,5 +47,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Limit memory quotes to three lines with expandable text"
+          git commit -m "Add local backup recency indicator"
           git push
