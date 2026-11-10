@@ -473,7 +473,19 @@ try{
  libraryRecoveryIssue='Kitaplık verisi okunamadı veya biçimi bozulmuş.';
  console.error('Kitaplığım: güvenli kurtarma gerekli',err);
 }
-const scanPrefsKey='kitapligim_scan_prefs'; let scanPrefs=JSON.parse(localStorage.getItem(scanPrefsKey)||'{"bookId":"","lastPage":""}');
+const scanPrefsKey='kitapligim_scan_prefs';
+let scanPrefs={bookId:'',lastPage:''};
+try{
+ const rawPrefs=localStorage.getItem(scanPrefsKey);
+ if(rawPrefs!==null){
+  const parsedPrefs=JSON.parse(rawPrefs);
+  if(parsedPrefs&&typeof parsedPrefs==='object'&&!Array.isArray(parsedPrefs))scanPrefs={...scanPrefs,...parsedPrefs};
+ }
+}catch(error){
+ // An unrelated scan preference must never prevent the book library from opening.
+ // Leave the original raw value untouched so it can still be exported.
+ console.warn('Kitaplığım: tarama tercihi okunamadı; ham kayıt korunuyor',error);
+}
 const saveScanPrefs=()=>localStorage.setItem(scanPrefsKey,JSON.stringify(scanPrefs));
 // Preserve the last successfully saved library if browser storage is full or unavailable.
 let librarySaveFailureShown=false;
@@ -2968,10 +2980,15 @@ $('#exportBtn').onclick=()=>{
   const entries={};for(const key of backupKeys){const value=localStorage.getItem(key);if(value!==null)entries[key]=value}
   const data={format:'kitapligim-backup',version:2,createdAt:new Date().toISOString(),entries};
   if(!entries[storeKey])data.entries[storeKey]=JSON.stringify(state);
+  const restored=JSON.parse(data.entries[storeKey]);
+  if(!validLibrary(restored))throw Error('Kitaplık kaydı doğrulanamadı.');
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='kitapligim-yedek-'+backupDate()+'.json';document.body.appendChild(a);a.click();a.remove();localStorage.setItem(backupLastDownloadKey,new Date().toISOString());refreshBackupAssurance();setTimeout(()=>URL.revokeObjectURL(url),60000);
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='kitapligim-yedek-'+backupDate()+'.json';document.body.appendChild(a);a.click();a.remove();
+  try{localStorage.setItem(backupLastDownloadKey,new Date().toISOString());refreshBackupAssurance()}
+  catch(error){console.warn('Kitaplığım: yedek tarihi kaydedilemedi',error)}
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
   showBackupStatus('Yedek dosyanız hazır. Dosyayı güvenli bir yerde saklayın.');
- }catch(err){showBackupStatus('Yedek oluşturulamadı. Tarayıcı depolama alanını kontrol edin.')}
+ }catch(err){showBackupStatus('Yedek oluşturulamadı: '+(err.message||'Tarayıcı depolama alanını kontrol edin.')+'. Mevcut kayıtlar değiştirilmedi.')}
 };
 $('#importInput').onchange=async e=>{
  const file=e.target.files&&e.target.files[0];if(!file)return;
