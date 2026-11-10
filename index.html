@@ -864,7 +864,7 @@ function openReadingJourney(year){
  '<div id="journeyProgress" style="display:flex;gap:4px;margin-bottom:20px"></div>'+
  '<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;letter-spacing:.15em;color:#d6b878">KİTAPLIĞIM · '+year+'</span><button type="button" id="journeyClose" aria-label="Kapat" style="border:0;background:#ffffff20;color:white;border-radius:50%;font-size:23px;width:36px;height:36px">×</button></div>'+
  '<div id="journeyBody" aria-live="polite" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;overflow:auto;padding:20px 4px"></div>'+
- '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:12px;color:#d7c9b0">Durdurmak için ekrana basılı tut</span><span id="journeyCounter" style="font-size:12px;color:#d7c9b0"></span></div></div>';
+ '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:12px;color:#d7c9b0">Sol: geri · Sağ: ileri · Basılı tut: duraklat</span><span id="journeyCounter" style="font-size:12px;color:#d7c9b0"></span></div></div>';
  document.body.appendChild(overlay);
  const body=overlay.querySelector('#journeyBody'),progress=overlay.querySelector('#journeyProgress'),focus=document.activeElement;
  let index=0,elapsed=0,started=0,timer=null,holding=false,closed=false;
@@ -909,10 +909,26 @@ function openReadingJourney(year){
  function onKey(e){if(e.key==='Escape')close()}
  function onVisibility(){if(document.hidden)pause();else resume()}
  overlay.querySelector('#journeyClose').onclick=close;
- stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;pause()});
- stage.addEventListener('pointerup',resume);
- stage.addEventListener('pointercancel',resume);
- stage.addEventListener('pointerleave',resume);
+ let pressStart=0,pressX=0,pressY=0,pressId=null;
+ stage.addEventListener('pointerdown',e=>{
+  if(e.target.closest('button')||closed)return;
+  pressStart=Date.now();pressX=e.clientX;pressY=e.clientY;pressId=e.pointerId;
+  pause();
+ });
+ stage.addEventListener('pointerup',e=>{
+  if(pressId!==e.pointerId)return;
+  const isTap=Date.now()-pressStart<320&&Math.hypot(e.clientX-pressX,e.clientY-pressY)<18;
+  pressId=null;
+  if(!isTap){resume();return}
+  holding=false;
+  if(e.clientX<stage.getBoundingClientRect().left+stage.getBoundingClientRect().width/2){
+   if(index>0){index--;elapsed=0;draw()}else schedule();
+  }else{
+   if(index===slides.length-1)close();else{index++;elapsed=0;draw()}
+  }
+ });
+ stage.addEventListener('pointercancel',()=>{pressId=null;resume()});
+ stage.addEventListener('pointerleave',e=>{if(pressId===e.pointerId){pressId=null;resume()}});
  document.addEventListener('keydown',onKey);
  document.addEventListener('visibilitychange',onVisibility);
  draw();overlay.querySelector('#journeyClose').focus();
