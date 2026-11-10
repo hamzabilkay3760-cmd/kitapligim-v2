@@ -955,7 +955,8 @@ function renderAnnualSummarySafe(){
  const journey=card.querySelector('#readingJourneyOpen');
  if(journey)journey.addEventListener('click',event=>{
   event.preventDefault();event.stopPropagation();
-  try{openReadingJourney(year)}
+  const selectedYear=yearPicker?yearPicker.value:String(new Date().getFullYear());
+  try{openReadingJourney(selectedYear)}
   catch(error){
    console.error('Okuma Yolculuğum açılış hatası:',error);
    const detail=error&&error.message?String(error.message):'Bilinmeyen hata';
