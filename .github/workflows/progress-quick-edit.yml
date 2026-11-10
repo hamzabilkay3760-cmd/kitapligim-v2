@@ -1,4 +1,4 @@
-name: Kitapligim fair monthly comparison
+name: Kitapligim gentle page transitions
 on:
   push:
     paths:
@@ -11,46 +11,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add fair monthly reading comparison
+      - name: Add reduced-motion-aware menu transitions
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          start=s.index('function renderMonthlyReadingComparison(){')
-          end=s.index("let annualArchiveSelectedYear=",start)
-          part=s[start:end]
-          old="""  const format=n=>n.toLocaleString('tr-TR');
-            card.innerHTML="""
-          new="""  const format=n=>n.toLocaleString('tr-TR');
-            const prevDate=new Date(today.getFullYear(),today.getMonth()-1,1);
-            const prevPrefix=prevDate.getFullYear()+'-'+String(prevDate.getMonth()+1).padStart(2,'0')+'-';
-            const comparableDays=Math.min(elapsedDays,previousMonthDays);
-            const previousSamePeriod=Object.keys(days).filter(k=>k.startsWith(prevPrefix)&&Number(k.slice(-2))<=comparableDays)
-              .reduce((sum,k)=>sum+Math.max(0,Number(days[k]?.pages)||0),0);
-            const change=current.pages-previousSamePeriod;
-            const comparisonText=previousSamePeriod===0
-              ?(current.pages>0?'Geçen ayın aynı döneminde okuma kaydı yok.':'İki dönemde de henüz okuma kaydı yok.')
-              :change===0?'Geçen ayın aynı dönemine göre aynı sayıda sayfa okudun.'
-              :change>0?'Geçen ayın aynı döneminden '+format(change)+' sayfa fazla okudun.'
-              :'Geçen ayın aynı döneminden '+format(-change)+' sayfa daha az okudun.';
-            card.innerHTML="""
-          assert part.count(old)==1
-          part=part.replace(old,new)
-          part=part.replace("Günde ortalama '+dailyAverageText+' sayfa","Takvim günü başına '+dailyAverageText+' sayfa")
-          part=part.replace("Günde ortalama '+avgText(previousAverage)+' sayfa","Takvim günü başına '+avgText(previousAverage)+' sayfa")
-          old="""   '</div>';
-           }catch(e)"""
-          new="""   '</div>'+
-             '<div style="margin-top:11px;border:1px solid #e7dcc8;border-radius:12px;padding:11px 12px;background:#fbf8f1">'+
-              '<div style="font-size:11px;font-weight:800;color:#76603e">AYIN AYNI DÖNEMİ</div>'+
-              '<div style="font-size:12px;line-height:1.5;margin-top:4px;color:#182640">'+esc(comparisonText)+'</div>'+
-              '<div class="muted" style="font-size:10px;margin-top:5px">Bu ayın ilk '+elapsedDays+' günü ile geçen ayın ilk '+comparableDays+' günü karşılaştırıldı.</div>'+
-             '</div>';
-           }catch(e)"""
-          assert part.count(old)==1
-          part=part.replace(old,new)
-          s=s[:start]+part+s[end:]
+          old=""" views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id));
+           window.scrollTo({top:0,behavior:'instant'});"""
+          new=""" views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id));
+           if(previous!==id){
+            const incoming=$('#'+id);
+            if(incoming&&typeof incoming.animate==='function'&&!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+             if(incoming._kitapligimEntrance)incoming._kitapligimEntrance.cancel();
+             incoming._kitapligimEntrance=incoming.animate([
+              {opacity:0.65,transform:'translateY(10px) scale(.965)',clipPath:'circle(32% at 50% 38%)'},
+              {opacity:1,transform:'translateY(0) scale(1)',clipPath:'circle(150% at 50% 38%)'}
+             ],{duration:360,easing:'cubic-bezier(.18,.8,.25,1)',fill:'none'});
+            }
+           }
+           window.scrollTo({top:0,behavior:'instant'});"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -59,5 +41,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Compare equal reading periods month to month"
+          git commit -m "Add gentle radial reveal menu transitions"
           git push
