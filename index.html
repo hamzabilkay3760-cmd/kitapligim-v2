@@ -1403,6 +1403,38 @@ function showBookFinishedCelebration(bookId){
    save();close();
  };
 }
+function showBookMemoryRevisit(bookId){
+ const b=state.books.find(x=>String(x.id)===String(bookId));if(!b)return;
+ const old=document.querySelector('#bookMemoryRevisit');if(old)old.remove();
+ const quotes=state.quotes.filter(q=>String(q.bookId)===String(bookId));
+ const favorites=quotes.filter(q=>q.favorite||q.isFavorite||q.favorited);
+ const selected=(favorites.length?favorites:quotes).slice(0,3);
+ let since='';
+ if(b.finishedDate){
+  const d=new Date(String(b.finishedDate)+'T12:00:00');
+  if(!isNaN(d)){
+   const days=Math.floor((Date.now()-d.getTime())/86400000);
+   if(days>=0)since=days<1?'Bugün bitirdin':days<30?days+' gün önce bitirdin':days<365?Math.floor(days/30)+' ay önce bitirdin':Math.floor(days/365)+' yıl önce bitirdin';
+  }
+ }
+ const fields=[['Aklında kalan karakter / olay',b.favoriteCharacter],['Sende bıraktığı iz',b.themes],['Tek cümleyle hatırladığın',b.memorySentence],['Ana karakterler',b.mainCharacters],['Kitabın konusu',b.mainSubject],['Yer / ortam',b.setting]].filter(x=>String(x[1]||'').trim());
+ const overlay=document.createElement('div');
+ overlay.id='bookMemoryRevisit';
+ overlay.style.cssText='position:fixed;inset:0;z-index:1001;background:rgba(24,38,64,.55);backdrop-filter:blur(6px);display:grid;place-items:center;padding:14px;overflow-y:auto';
+ overlay.innerHTML=`<div style="width:min(470px,100%);max-height:92vh;overflow:auto;background:#fffdf8;border:1px solid #dfd2b5;border-radius:23px;padding:22px 19px">
+ <div class="eyebrow">Kişisel okuma hafızan</div><h2 class="serif" style="font-size:28px;color:#182640;margin:7px 0">${esc(b.title||'Kitabın')}</h2>
+ <p class="muted" style="font-size:13px">${esc(since|| (b.finishedDate?formatBookFinishedDate(b.finishedDate):'Okuduğun bir kitap'))}</p>
+ <div style="border-top:1px solid #e4d7c0;margin:14px 0"></div>
+ <h3 class="serif" style="font-size:21px;margin:0 0 12px">Sende kalanlar</h3>
+ ${fields.length?fields.map(([label,value])=>'<div style="margin-bottom:13px"><div class="eyebrow" style="font-size:10px">'+esc(label)+'</div><div style="font-size:14px;line-height:1.6;color:#302f2b;margin-top:4px;white-space:pre-wrap">'+esc(String(value))+'</div></div>').join(''):'<p class="muted" style="font-size:13px">Henüz kişisel hatırlama notu eklemedin. Bu kitabın hafızasını dilediğin zaman tamamlayabilirsin.</p>'}
+ <h3 class="serif" style="font-size:21px;margin:19px 0 10px">Altını çizdiklerin</h3>
+ ${selected.length?selected.map(q=>'<div style="background:#f7f1e6;border-radius:13px;padding:12px;margin-bottom:9px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:#302f2b">'+esc(String(q.text||''))+'<div class="muted" style="font-family:system-ui;font-size:11px;margin-top:6px">Sayfa '+esc(String(q.page||'—'))+'</div></div>').join(''):'<p class="muted" style="font-size:13px">Bu kitap için henüz alıntı kaydedilmemiş.</p>'}
+ <button id="memoryRevisitClose" style="width:100%;margin-top:12px">Kitabıma dön</button></div>`;
+ document.body.appendChild(overlay);
+ const close=()=>overlay.remove();
+ overlay.querySelector('#memoryRevisitClose').onclick=close;
+ overlay.onclick=e=>{if(e.target===overlay)close()};
+}
 function formatBookFinishedDate(v){
  if(!v)return '';
  const raw=String(v);
@@ -1713,13 +1745,13 @@ function renderBook(id){
   const qs=state.quotes.filter(q=>q.bookId===id).sort((a,b)=>(+a.page||999999)-(+b.page||999999));
   show('bookDetailView');
   $('#bookDetailView').innerHTML=`<button id="backLibrary" class="btn secondary">← Kütüphaneye dön</button><div class="card section-gap bookDetailCard"><div class="bookDetailHero">${b.cover?`<img class="bookDetailCover" src="${b.cover}">`:`<div class="bookDetailCover ph">${esc(b.title)}</div>`}<div><div class="eyebrow">${esc(b.status||'Okuyorum')}</div><h1 class="bookDetailTitle">${esc(b.title)}</h1><div class="bookDetailAuthor">${esc(b.author||'')}</div></div></div><div class="metaGrid">${b.publisher?`<div class="metaItem"><b>Yayınevi</b>${esc(b.publisher)}</div>`:''}${b.year?`<div class="metaItem"><b>Baskı yılı</b>${esc(String(b.year))}</div>`:''}${b.pages?`<div class="metaItem"><b>Sayfa sayısı</b>${esc(String(b.pages))}</div>`:''}<div class="metaItem"><b>Alıntı</b>${qs.length}</div>${b.status==='Okudum'&&b.finishedDate?`<div class="metaItem"><b>Ne zaman bitirdim?</b>${esc(formatBookFinishedDate(b.finishedDate))}</div>`:''}${b.status==='Okudum'&&b.finishedPlace?`<div class="metaItem"><b>Nerede bitirdim?</b>${esc(b.finishedPlace)}</div>`:''}</div><div class="bookDetailActions"><button id="miniBtn">Mini Kitabım</button><button id="editBook" class="btn secondary">Kitap bilgilerini düzenle</button></div></div>
-  ${true?`<div class="archiveBox section-gap"><div class="eyebrow">Kişisel arşiv</div><h2 class="archiveBoxTitle">Kitabı Hatırla</h2><div class="archiveGrid">${b.mainCharacters?`<div class="archiveItem"><b>Ana karakterler</b>${esc(b.mainCharacters)}</div>`:''}${b.setting?`<div class="archiveItem"><b>Yer / ortam</b>${esc(b.setting)}</div>`:''}${b.mainSubject?`<div class="archiveItem archiveWide"><b>Ana konu</b>${esc(b.mainSubject)}</div>`:''}${b.themes?`<div class="archiveItem"><b>Temalar</b>${esc(b.themes)}</div>`:''}${b.favoriteCharacter?`<div class="archiveItem"><b>En sevdiğim karakter</b>${esc(b.favoriteCharacter)}</div>`:''}${b.rating?`<div class="archiveItem"><b>Puanım</b><span class="archiveStars">${'★'.repeat(Number(b.rating))}${'☆'.repeat(5-Number(b.rating))}</span></div>`:''}${b.memorySentence?`<div class="archiveItem archiveWide"><b>Tek cümleyle hatırladığım</b>${esc(b.memorySentence)}</div>`:''}</div><div class="archiveActions"><button id="editBookMemory" class="btn secondary">${(b.mainCharacters||b.setting||b.mainSubject||b.themes||b.favoriteCharacter||b.rating||b.memorySentence)?'Notlarımı düzenle':'Kitabı Hatırla notlarını ekle'}</button></div></div>`:''}
+  ${true?`<div class="archiveBox section-gap"><div class="eyebrow">Kişisel arşiv</div><h2 class="archiveBoxTitle">Kitabı Hatırla</h2><div class="archiveGrid">${b.mainCharacters?`<div class="archiveItem"><b>Ana karakterler</b>${esc(b.mainCharacters)}</div>`:''}${b.setting?`<div class="archiveItem"><b>Yer / ortam</b>${esc(b.setting)}</div>`:''}${b.mainSubject?`<div class="archiveItem archiveWide"><b>Ana konu</b>${esc(b.mainSubject)}</div>`:''}${b.themes?`<div class="archiveItem"><b>Temalar</b>${esc(b.themes)}</div>`:''}${b.favoriteCharacter?`<div class="archiveItem"><b>En sevdiğim karakter</b>${esc(b.favoriteCharacter)}</div>`:''}${b.rating?`<div class="archiveItem"><b>Puanım</b><span class="archiveStars">${'★'.repeat(Number(b.rating))}${'☆'.repeat(5-Number(b.rating))}</span></div>`:''}${b.memorySentence?`<div class="archiveItem archiveWide"><b>Tek cümleyle hatırladığım</b>${esc(b.memorySentence)}</div>`:''}</div><div class="archiveActions"><button id="revisitBookMemory" class="btn secondary" style="margin-right:7px">Kitabı Yeniden Hatırla</button><button id="editBookMemory" class="btn secondary">${(b.mainCharacters||b.setting||b.mainSubject||b.themes||b.favoriteCharacter||b.rating||b.memorySentence)?'Notlarımı düzenle':'Kitabı Hatırla notlarını ekle'}</button></div></div>`:''}
   <div id="bookNotesSection" class="section-gap"></div>
   <div id="bookReadingHistorySection" class="section-gap"></div>
   <div id="relatedBooksSection" class="section-gap"></div>
   <div class="between section-gap bookDetailQuotesHead"><div><div class="eyebrow">Kayıtlı cümleler</div><h2 class="serif" style="font-size:38px;margin:8px 0">Alıntılar</h2></div><button id="addQuote">+ Alıntı ekle</button></div>
   <div id="quotesList">${qs.length?qs.map(q=>quoteCard(q)).join(''):`<div class="empty"><h2 class="serif">Bu kitap için henüz alıntı yok</h2><p class="muted">Elle ekleyebilir veya Fotoğraf Tara ile sayfadan aktarabilirsiniz.</p></div>`}</div>`;
-  $('#backLibrary').onclick=()=>{show('libraryView');renderLibrary()}; $('#miniBtn').onclick=()=>renderMini(id); $('#editBook').onclick=()=>renderBookForm(b); const memoryBtn=$('#editBookMemory');if(memoryBtn)memoryBtn.onclick=()=>renderBookForm(b); $('#addQuote').onclick=()=>renderQuoteForm(id); $$('.editQuote').forEach(x=>x.onclick=()=>renderQuoteForm(id,x.dataset.qid)); $$('.delQuote').forEach(x=>x.onclick=()=>{if(confirm('Alıntı silinsin mi?')){state.quotes=state.quotes.filter(q=>q.id!==x.dataset.qid);save();renderBook(id)}}); setupQuoteFavorites(id,qs); setupQuoteTagFilters(qs); setupBookFavorite(id); setupDetailReadingProgress(id); setupBookReadingSpeed(id); setupBookCompletionSummary(id); setupBookNotes(id); setupBookReadingHistory(id); setupRelatedBooks(id); highlightLibrarySearchInDetail()
+  $('#backLibrary').onclick=()=>{show('libraryView');renderLibrary()}; $('#miniBtn').onclick=()=>renderMini(id); $('#editBook').onclick=()=>renderBookForm(b); const memoryBtn=$('#editBookMemory');if(memoryBtn)memoryBtn.onclick=()=>renderBookForm(b); const revisitBtn=$('#revisitBookMemory');if(revisitBtn)revisitBtn.onclick=()=>showBookMemoryRevisit(id); $('#addQuote').onclick=()=>renderQuoteForm(id); $$('.editQuote').forEach(x=>x.onclick=()=>renderQuoteForm(id,x.dataset.qid)); $$('.delQuote').forEach(x=>x.onclick=()=>{if(confirm('Alıntı silinsin mi?')){state.quotes=state.quotes.filter(q=>q.id!==x.dataset.qid);save();renderBook(id)}}); setupQuoteFavorites(id,qs); setupQuoteTagFilters(qs); setupBookFavorite(id); setupDetailReadingProgress(id); setupBookReadingSpeed(id); setupBookCompletionSummary(id); setupBookNotes(id); setupBookReadingHistory(id); setupRelatedBooks(id); highlightLibrarySearchInDetail()
 }
 function setupBookReadingHistory(bookId){
  const host=$('#bookReadingHistorySection');
