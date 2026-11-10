@@ -1,4 +1,4 @@
-name: Kitapligim statistics card polish
+name: Kitapligim expandable reading history
 on:
   push:
     paths:
@@ -11,26 +11,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Polish statistics cards without touching data
+      - name: Add expandable daily reading details
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          anchor='#dataView .readingStatsTabs~.eyebrow{margin-top:22px}'
-          assert s.count(anchor)==1
-          extra="""
-          #dataView #readingJournalWeekly,#dataView #monthlyReadingComparison,#dataView #monthlyReadingCalendar,#dataView #annualSummarySafe,#dataView #bookMemoryArchive{border:1px solid #e6dccb;border-radius:22px;box-shadow:0 4px 20px rgba(24,38,64,.045);padding:clamp(15px,3.5vw,22px);overflow:hidden}
-          #dataView #readingJournalWeekly .eyebrow,#dataView #monthlyReadingComparison .eyebrow,#dataView #monthlyReadingCalendar .eyebrow,#dataView #annualSummarySafe .eyebrow,#dataView #bookMemoryArchive .eyebrow{letter-spacing:.12em}
-          #dataView #readingJournalWeekly .serif,#dataView #monthlyReadingComparison .serif,#dataView #monthlyReadingCalendar .serif,#dataView #annualSummarySafe .serif,#dataView #bookMemoryArchive .serif{letter-spacing:-.025em;line-height:1.15}
-          #dataView #readingJournalWeekly .readingHistoryRow{align-items:flex-start!important;gap:10px!important}
-          #dataView #readingJournalWeekly .readingHistoryRow>div:first-child{flex:1;min-width:0}
-          #dataView #readingJournalWeekly .readingHistoryRow>div:last-child{flex-shrink:0;font-variant-numeric:tabular-nums}
-          #dataView #monthlyReadingCalendar .readingCalendarDay{transition:border-color .15s,background-color .15s;min-width:0}
-          #dataView #monthlyReadingComparison .card,#dataView #annualSummarySafe .card{box-shadow:none}
-          @media(max-width:420px){#dataView #readingJournalWeekly,#dataView #monthlyReadingComparison,#dataView #monthlyReadingCalendar,#dataView #annualSummarySafe,#dataView #bookMemoryArchive{padding:15px;border-radius:19px}#dataView #readingJournalWeekly .serif,#dataView #monthlyReadingComparison .serif,#dataView #monthlyReadingCalendar .serif,#dataView #annualSummarySafe .serif{font-size:clamp(22px,6.2vw,28px)!important}#dataView #readingJournalWeekly .readingHistoryRow{flex-wrap:wrap}}
+          start=s.index('   const rows=allEntries.map((x,index)=>{',s.index('function renderReadingJournalWeeklySafe'))
+          end=s.index("\\n   const dayNames=['Pzt'",start)
+          new="""   const rows=allEntries.map((x,index)=>{
+               const pages=Number(x.pages)||0;
+               const breakdown=x.bookPages&&typeof x.bookPages==='object'&&!Array.isArray(x.bookPages)&&Object.keys(x.bookPages).length
+                 ?x.bookPages:(x.bookId?{[String(x.bookId)]:pages}:{});
+               const bookRows=Object.entries(breakdown).filter(([,n])=>Number(n)>0).map(([id,n])=>{
+                 const found=state.books.find(b=>String(b.id)===String(id));
+                 const title=found?String(found.title||'İsimsiz kitap'):'Kitap artık kütüphanede yok';
+                 return '<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #eee5d6">'+
+                  '<span style="min-width:0;overflow-wrap:anywhere">'+esc(title)+'</span>'+
+                  '<strong style="flex-shrink:0;font-variant-numeric:tabular-nums">'+Number(n)+' sayfa</strong></div>';
+               }).join('');
+               const count=Object.entries(breakdown).filter(([,n])=>Number(n)>0).length;
+               const summary=count>1?count+' kitap':count===1?'1 kitap':'Kitap ayrıntısı yok';
+               return '<details class="readingHistoryRow" '+(index>=14?'hidden':'')+' style="display:'+(index>=14?'none':'block')+';border-top:1px solid #eee5d6">'+
+                 '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;min-height:48px">'+
+                  '<span style="min-width:0"><strong style="display:block;font-size:12px;color:#182640">'+esc(fmtDate(x.key))+'</strong>'+
+                  '<span class="muted" style="font-size:11px">'+summary+' · Ayrıntıları gör</span></span>'+
+                  '<span style="font-size:13px;font-weight:800;white-space:nowrap">'+pages+' sayfa <span aria-hidden="true" style="color:#a98a4a">⌄</span></span>'+
+                 '</summary>'+
+                 '<div style="padding:2px 11px 11px;background:#fbf7ef;border-radius:12px;margin-bottom:9px;font-size:12px;line-height:1.5">'+
+                 (bookRows||'<div class="muted" style="padding:9px 0">Bu eski kayıt için kitap ayrıntısı bulunmuyor.</div>')+
+                 '</div></details>';
+             }).join('');
           """
-          s=s.replace(anchor,anchor+'\\n'+extra)
+          s=s[:start]+new+s[end:]
+          s=s.replace("row.style.display='flex'","row.style.display='block'")
+          assert "row.style.display='flex'" not in s[s.index('function renderReadingJournalWeeklySafe'):s.index('function renderMonthlyReadingComparison')]
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -39,5 +54,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Polish statistics cards for mobile"
+          git commit -m "Add expandable reading day details"
           git push
