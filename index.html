@@ -864,29 +864,54 @@ function openReadingJourney(year){
  '<div id="journeyProgress" style="display:flex;gap:4px;margin-bottom:20px"></div>'+
  '<div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;letter-spacing:.15em;color:#d6b878">KİTAPLIĞIM · '+year+'</span><button type="button" id="journeyClose" aria-label="Kapat" style="border:0;background:#ffffff20;color:white;border-radius:50%;font-size:23px;width:36px;height:36px">×</button></div>'+
  '<div id="journeyBody" aria-live="polite" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;overflow:auto;padding:20px 4px"></div>'+
- '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><button type="button" id="journeyPrev" style="background:#ffffff19;border:1px solid #ffffff40;border-radius:12px;color:white;padding:12px">← Geri</button><span id="journeyCounter" style="font-size:12px;color:#d7c9b0"></span><button type="button" id="journeyNext" style="background:#d6b878;border:0;border-radius:12px;color:#182640;font-weight:800;padding:12px">İleri →</button></div></div>';
+ '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font-size:12px;color:#d7c9b0">Durdurmak için ekrana basılı tut</span><span id="journeyCounter" style="font-size:12px;color:#d7c9b0"></span></div></div>';
  document.body.appendChild(overlay);
  const body=overlay.querySelector('#journeyBody'),progress=overlay.querySelector('#journeyProgress'),focus=document.activeElement;
- let index=0,touchX=null;
- function close(){document.removeEventListener('keydown',onKey);overlay.remove();if(focus&&focus.isConnected)focus.focus()}
- function draw(){const slide=slides[index];
-  progress.innerHTML=slides.map((_,i)=>'<span style="height:3px;flex:1;border-radius:8px;background:'+(i<=index?'#d6b878':'#ffffff38')+'"></span>').join('');
+ let index=0,elapsed=0,started=0,timer=null,holding=false,closed=false;
+ const duration=5000;
+ const stage=overlay.firstElementChild;
+ function stopTimer(){if(timer!==null){clearTimeout(timer);timer=null}}
+ function updateBars(){
+  const bars=progress.children;
+  for(let i=0;i<bars.length;i++){
+   const fraction=i<index?1:i>index?0:Math.min(1,elapsed/duration);
+   bars[i].style.background='linear-gradient(to right,#d6b878 '+Math.round(fraction*100)+'%,#ffffff38 '+Math.round(fraction*100)+'%)';
+  }
+ }
+ function close(){
+  if(closed)return;closed=true;stopTimer();
+  document.removeEventListener('keydown',onKey);
+  document.removeEventListener('visibilitychange',onVisibility);
+  overlay.remove();if(focus&&focus.isConnected)focus.focus();
+ }
+ function schedule(){
+  stopTimer();updateBars();
+  if(holding||document.hidden||closed)return;
+  started=Date.now();
+  timer=setTimeout(()=>{elapsed=duration;updateBars();if(index===slides.length-1)close();else{index++;elapsed=0;draw()}},Math.max(1,duration-elapsed));
+ }
+ function pause(){if(holding||closed)return;holding=true;if(timer!==null)elapsed=Math.min(duration,elapsed+Date.now()-started);stopTimer();updateBars()}
+ function resume(){if(!holding||closed)return;holding=false;schedule()}
+ function draw(){
+  const slide=slides[index];
+  progress.innerHTML=slides.map(()=>'<span style="height:3px;flex:1;border-radius:8px;background:#ffffff38"></span>').join('');
   body.innerHTML='<div style="font-size:11px;letter-spacing:.18em;color:#d6b878;font-weight:800">'+esc(slide[0])+'</div>'+
    '<div style="font:clamp(30px,8vw,44px)/1.2 Georgia,serif;overflow-wrap:anywhere;max-width:100%">'+esc(slide[1])+'</div>'+
    '<div style="font-size:15px;line-height:1.6;color:#e2ded7;max-width:310px;overflow-wrap:anywhere">'+esc(slide[2])+'</div>';
-  overlay.querySelector('#journeyCounter').textContent=(index+1)+' / 7';
-  overlay.querySelector('#journeyPrev').disabled=index===0;
-  overlay.querySelector('#journeyPrev').style.opacity=index===0?'.35':'1';
-  overlay.querySelector('#journeyNext').textContent=index===6?'Bitir ✓':'İleri →';
-  if(body.animate&&!window.matchMedia('(prefers-reduced-motion: reduce)').matches)body.animate([{opacity:.35,transform:'translateY(10px) scale(.98)'},{opacity:1,transform:'none'}],{duration:260,easing:'ease-out'});
+  overlay.querySelector('#journeyCounter').textContent=(index+1)+' / '+slides.length;
+  if(body.animate&&!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches))body.animate([{opacity:.35,transform:'translateY(10px)'},{opacity:1,transform:'none'}],{duration:260,easing:'ease-out'});
+  schedule();
  }
- function next(){if(index===6)close();else{index++;draw()}}
- function back(){if(index>0){index--;draw()}}
- function onKey(e){if(e.key==='Escape')close();else if(e.key==='ArrowRight')next();else if(e.key==='ArrowLeft')back()}
- overlay.querySelector('#journeyClose').onclick=close;overlay.querySelector('#journeyNext').onclick=next;overlay.querySelector('#journeyPrev').onclick=back;
- overlay.addEventListener('touchstart',e=>{touchX=e.changedTouches[0].clientX},{passive:true});
- overlay.addEventListener('touchend',e=>{if(touchX===null)return;const dx=e.changedTouches[0].clientX-touchX;touchX=null;if(Math.abs(dx)>55)(dx<0?next:back)()},{passive:true});
- document.addEventListener('keydown',onKey);draw();overlay.querySelector('#journeyClose').focus();
+ function onKey(e){if(e.key==='Escape')close()}
+ function onVisibility(){if(document.hidden)pause();else resume()}
+ overlay.querySelector('#journeyClose').onclick=close;
+ stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;pause()});
+ stage.addEventListener('pointerup',resume);
+ stage.addEventListener('pointercancel',resume);
+ stage.addEventListener('pointerleave',resume);
+ document.addEventListener('keydown',onKey);
+ document.addEventListener('visibilitychange',onVisibility);
+ draw();overlay.querySelector('#journeyClose').focus();
 }
 function renderAnnualSummarySafe(){
  const view=$('#dataView');if(!view)return;
