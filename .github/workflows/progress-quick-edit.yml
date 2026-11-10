@@ -1,4 +1,4 @@
-name: Kitapligim unsaved edits protection
+name: Kitapligim guarded mobile back
 on:
   push:
     paths:
@@ -11,55 +11,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Guard unsaved edits
+      - name: Guard mobile back navigation
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          anchor="function appGoBack(){"
-          insert="""// Guard unsaved edits on book and quote forms without changing their existing save logic.
-          let editGuardSnapshot=null,editGuardBypass=false;
-          function editGuardForm(){const id=activeView();return id==='bookFormView'||id==='quoteFormView'?document.getElementById(id):null}
-          function editGuardValues(form){
-           if(!form)return '';
-           return JSON.stringify([...form.querySelectorAll('input,textarea,select')].filter(el=>el.type!=='file'&&el.type!=='button').map(el=>[el.id,el.value,el.type==='checkbox'?el.checked:null]).concat([...form.querySelectorAll('input[type=file]')].map(el=>[el.id,el.files?.[0]?.name||'',el.files?.[0]?.size||0])));
+          old="""function appGoBack(){
+           if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}
+           const prev=navigationStack.pop();"""
+          new="""// Keep an in-app browser-history entry for edit forms so mobile back gestures
+          // reach the same guarded navigation as the visible Back button.
+          let guardedHistorySerial=0;
+          function armEditHistory(){
+           if(!window.history||!window.history.pushState)return;
+           const form=editGuardForm();
+           if(!form)return;
+           try{
+            const marker='kitapligim-edit-'+(++guardedHistorySerial);
+            history.pushState({kitapligimEditMarker:marker},'',location.href);
+           }catch(err){console.warn('Kitaplığım: mobil geri hareketi bağlanamadı',err)}
           }
-          function editGuardDirty(){const form=editGuardForm();return !!(form&&editGuardSnapshot&&editGuardSnapshot.view===form.id&&editGuardValues(form)!==editGuardSnapshot.values)}
-          function editGuardCapture(){const form=editGuardForm();editGuardSnapshot=form?{view:form.id,values:editGuardValues(form)}:null}
-          function editGuardDialog(leave){
-           if(document.getElementById('unsavedEditGuard'))return;
-           const overlay=document.createElement('div');overlay.id='unsavedEditGuard';
-           overlay.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(24,38,64,.48);display:grid;place-items:center;padding:20px';
-           overlay.innerHTML='<div role="dialog" aria-modal="true" aria-labelledby="unsavedEditTitle" style="width:min(430px,100%);background:#fffdf8;border:1px solid #dfd2b5;border-radius:20px;padding:23px;box-shadow:0 16px 50px #18264033"><h2 id="unsavedEditTitle" style="font-size:23px;color:#182640;margin:0 0 10px">Kaydedilmemiş değişiklikler</h2><p style="line-height:1.55;color:#5f5a50">Yaptığınız değişiklikleri henüz kaydetmediniz. Ne yapmak istersiniz?</p><div style="display:grid;gap:9px;margin-top:18px"><button id="unsavedSave" type="button">Kaydet ve çık</button><button id="unsavedDiscard" type="button" class="btn secondary">Değişiklikleri kaydetmeden çık</button><button id="unsavedStay" type="button" class="btn secondary">Düzenlemeye devam et</button></div></div>';
-           document.body.appendChild(overlay);
-           overlay.querySelector('#unsavedStay').onclick=()=>overlay.remove();
-           overlay.querySelector('#unsavedDiscard').onclick=()=>{overlay.remove();editGuardBypass=true;try{leave()}finally{editGuardBypass=false}};
-           overlay.querySelector('#unsavedSave').onclick=()=>{
-            const form=editGuardForm(),button=form?.querySelector(form.id==='bookFormView'?'#bfSave':'#qfSave');
-            if(!button)return;
-            overlay.remove();
-            // Existing save handlers validate fields and navigate only after saving.
-            button.click();
-           };
-          }
-          function editGuardLeave(leave){if(!editGuardBypass&&editGuardDirty()){editGuardDialog(leave);return false}leave();return true}
-          window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});
-          """
-          assert s.count(anchor)==1
-          s=s.replace(anchor,insert+anchor)
-          s=s.replace("function appGoBack(){\n const prev=navigationStack.pop();","function appGoBack(){\n if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}\n const prev=navigationStack.pop();")
-          s=s.replace("function show(id){\n const previous=activeView();","function show(id){\n const previous=activeView();\n if(!editGuardBypass&&previous!==id&&editGuardDirty()&&id!=='bookDetailView'&&id!=='libraryView'&&id!=='scanView'&&id!=='dataView'&&id!=='miniView'){editGuardDialog(()=>show(id));return}\n if(previous!==id)editGuardSnapshot=null;")
-          # Existing saves navigate to detail/library; allow those after save; intercept explicit navigation controls separately.
-          s=s.replace("$$('.navbtn').forEach(b=>b.onclick=()=>{","$$('.navbtn').forEach(b=>b.onclick=()=>{ if(editGuardDirty()){editGuardDialog(()=>b.click());return}")
-          s=s.replace("  $('#bfCancel').onclick=()=>book?renderBook(book.id):(show('libraryView'),renderLibrary());","  $('#bfCancel').onclick=()=>editGuardLeave(()=>book?renderBook(book.id):(show('libraryView'),renderLibrary()));")
-          s=s.replace("  $('#qfCancel').onclick=()=>renderBook(bookId);","  $('#qfCancel').onclick=()=>editGuardLeave(()=>renderBook(bookId));")
-          # capture after form initial values and event handlers are attached
-          s=s.replace("    setupReadingStreak();\n    if((autoFinished", "    setupReadingStreak();\n    if((autoFinished")
-          s=s.replace("  };\n}\n\nfunction askBookFinishedPlace", "  };\n  editGuardCapture();\n}\n\nfunction askBookFinishedPlace")
-          s=s.replace(" save(); renderBook(bookId)};\n}\nfunction miniEscRegExp", " save(); renderBook(bookId)};\n  editGuardCapture();\n}\nfunction miniEscRegExp")
-          # intercept direct browser history back where available; fallback beforeunload handles real page exit
-          s=s.replace("window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});","window.addEventListener('beforeunload',e=>{if(editGuardDirty()){e.preventDefault();e.returnValue=''}});")
+          window.addEventListener('popstate',()=>{
+           if(!editGuardForm())return;
+           // Browser has already moved back one history entry. Restore the in-app
+           // sentinel before showing the warning, so Cancel remains on this page.
+           armEditHistory();
+           appGoBack();
+          });
+          function appGoBack(){
+           if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}
+           const prev=navigationStack.pop();"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          # arm after edit form is initialized; don't create duplicate entry when restoring
+          old="  editGuardCapture();\n}\n\nfunction askBookFinishedPlace"
+          new="  editGuardCapture();\n  if(!navigationRestoring)armEditHistory();\n}\n\nfunction askBookFinishedPlace"
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="  editGuardCapture();\n}\nfunction miniEscRegExp"
+          new="  editGuardCapture();\n  if(!navigationRestoring)armEditHistory();\n}\nfunction miniEscRegExp"
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          # Fix discard on browser back and regular navigation: a single guard remains in appGoBack
+          # Preserve user-approved UI and other data flows.
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -68,5 +63,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Warn before leaving unsaved book and quote edits"
+          git commit -m "Route mobile back gestures through unsaved-edit guard"
           git push
