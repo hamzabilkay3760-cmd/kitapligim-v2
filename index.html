@@ -1428,11 +1428,18 @@ function showBookMemoryRevisit(bookId){
  <h3 class="serif" style="font-size:21px;margin:0 0 12px">Sende kalanlar</h3>
  ${fields.length?fields.map(([label,value])=>'<div style="margin-bottom:13px"><div class="eyebrow" style="font-size:10px">'+esc(label)+'</div><div style="font-size:14px;line-height:1.6;color:#302f2b;margin-top:4px;white-space:pre-wrap">'+esc(String(value))+'</div></div>').join(''):'<p class="muted" style="font-size:13px">Henüz kişisel hatırlama notu eklemedin. Bu kitabın hafızasını dilediğin zaman tamamlayabilirsin.</p>'}
  <h3 class="serif" style="font-size:21px;margin:19px 0 10px">Altını çizdiklerin</h3>
- ${selected.length?selected.map(q=>'<div style="background:#f7f1e6;border-radius:13px;padding:12px;margin-bottom:9px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:#302f2b">'+esc(String(q.text||''))+'<div class="muted" style="font-family:system-ui;font-size:11px;margin-top:6px">Sayfa '+esc(String(q.page||'—'))+'</div></div>').join(''):'<p class="muted" style="font-size:13px">Bu kitap için henüz alıntı kaydedilmemiş.</p>'}
+ ${selected.length?selected.map((q,i)=>'<div class="memoryRevisitQuote" data-quote-index="'+i+'" style="background:#f7f1e6;border-radius:13px;padding:12px;margin-bottom:9px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:#302f2b;cursor:pointer" role="button" tabindex="0" aria-label="Alıntının tamamını aç"><div class="memoryQuoteText" style="display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;white-space:pre-wrap">'+esc(String(q.text||''))+'</div><div class="muted" style="font-family:system-ui;font-size:11px;margin-top:6px">Sayfa '+esc(String(q.page||'—'))+' · Tamamını okumak için dokun</div></div>').join(''):'<p class="muted" style="font-size:13px">Bu kitap için henüz alıntı kaydedilmemiş.</p>'}
+ ${quotes.length?'<button id="memoryRevisitAllQuotes" class="btn secondary" style="width:100%;margin-top:5px">Tüm alıntılarımı gör ('+quotes.length+')</button>':''}
  <button id="memoryRevisitClose" style="width:100%;margin-top:12px">Kitabıma dön</button></div>`;
  document.body.appendChild(overlay);
  const close=()=>overlay.remove();
  overlay.querySelector('#memoryRevisitClose').onclick=close;
+ overlay.querySelectorAll('.memoryRevisitQuote').forEach(card=>{
+  const expand=()=>{const txt=card.querySelector('.memoryQuoteText');if(!txt)return;const open=txt.style.webkitLineClamp==='unset';txt.style.webkitLineClamp=open?'3':'unset';card.querySelector('.muted').textContent='Sayfa '+String(selected[Number(card.dataset.quoteIndex)]?.page||'—')+(open?' · Tamamını okumak için dokun':' · Kısaltmak için dokun')};
+  card.onclick=expand;card.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();expand()}};
+ });
+ const allQuotes=overlay.querySelector('#memoryRevisitAllQuotes');
+ if(allQuotes)allQuotes.onclick=()=>{close();const target=document.querySelector('.bookDetailQuotesHead')||document.querySelector('#quotesList');if(target)target.scrollIntoView({behavior:'smooth',block:'start'})};
  overlay.onclick=e=>{if(e.target===overlay)close()};
 }
 function formatBookFinishedDate(v){
