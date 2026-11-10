@@ -1,4 +1,4 @@
-name: Reading story tap controls
+name: Fix iOS story long press
 on:
   push:
     paths:
@@ -11,42 +11,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Enable tap and hold story controls
+      - name: Disable iOS selection in story overlay
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old=""" overlay.querySelector('#journeyClose').onclick=close;
-           stage.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;pause()});
-           stage.addEventListener('pointerup',resume);
-           stage.addEventListener('pointercancel',resume);
-           stage.addEventListener('pointerleave',resume);"""
-          new=""" overlay.querySelector('#journeyClose').onclick=close;
-           let pressStart=0,pressX=0,pressY=0,pressId=null;
-           stage.addEventListener('pointerdown',e=>{
-            if(e.target.closest('button')||closed)return;
-            pressStart=Date.now();pressX=e.clientX;pressY=e.clientY;pressId=e.pointerId;
-            pause();
-           });
-           stage.addEventListener('pointerup',e=>{
-            if(pressId!==e.pointerId)return;
-            const isTap=Date.now()-pressStart<320&&Math.hypot(e.clientX-pressX,e.clientY-pressY)<18;
-            pressId=null;
-            if(!isTap){resume();return}
-            holding=false;
-            if(e.clientX<stage.getBoundingClientRect().left+stage.getBoundingClientRect().width/2){
-             if(index>0){index--;elapsed=0;draw()}else schedule();
-            }else{
-             if(index===slides.length-1)close();else{index++;elapsed=0;draw()}
-            }
-           });
-           stage.addEventListener('pointercancel',()=>{pressId=null;resume()});
-           stage.addEventListener('pointerleave',e=>{if(pressId===e.pointerId){pressId=null;resume()}});"""
+          old=""" overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0e1727;display:flex;align-items:center;justify-content:center;padding:10px;color:white';"""
+          new=""" overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:#0e1727;display:flex;align-items:center;justify-content:center;padding:10px;color:white;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation';"""
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="""<span style="font-size:12px;color:#d7c9b0">Durdurmak için ekrana basılı tut</span>"""
-          new="""<span style="font-size:12px;color:#d7c9b0">Sol: geri · Sağ: ileri · Basılı tut: duraklat</span>"""
+          old=""" const stage=overlay.firstElementChild;
+           function stopTimer()"""
+          new=""" const stage=overlay.firstElementChild;
+           overlay.addEventListener('contextmenu',event=>event.preventDefault());
+           overlay.addEventListener('selectstart',event=>event.preventDefault());
+           overlay.addEventListener('dragstart',event=>event.preventDefault());
+           function stopTimer()"""
+          assert s.count(old)==1
+          s=s.replace(old,new)
+          old="""  pressStart=Date.now();pressX=e.clientX;pressY=e.clientY;pressId=e.pointerId;
+            pause();"""
+          new="""  if(e.cancelable)e.preventDefault();
+            pressStart=Date.now();pressX=e.clientX;pressY=e.clientY;pressId=e.pointerId;
+            pause();"""
           assert s.count(old)==1
           s=s.replace(old,new)
           p.write_text(s,encoding='utf-8')
@@ -63,5 +51,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Enable tap navigation in auto playing reading stories"
+          git commit -m "Prevent iOS text selection during story hold"
           git push
