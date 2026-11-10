@@ -1333,6 +1333,7 @@ function renderBookForm(book=null){
     const previousPage=book?Math.max(0,Number(book.currentPage)||0):0;
     const nextPage=Math.max(0,Number(obj.currentPage)||0);
     const addedPages=book&&currentRaw&&nextPage>previousPage?nextPage-previousPage:0;
+    const wasFinished=book?.status==='Okudum';
     if(book) Object.assign(book,obj); else state.books.push(obj);
     if(addedPages){
       const reading=getReadingStreakData(),today=localDateKey();
@@ -1343,7 +1344,7 @@ function renderBookForm(book=null){
     }
     save();
     setupReadingStreak();
-    if((autoFinished||(!book||book.status!=='Okudum')&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);
+    if((autoFinished||!wasFinished&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);
   };
 }
 
