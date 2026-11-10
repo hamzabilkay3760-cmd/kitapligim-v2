@@ -1,4 +1,4 @@
-name: Kitapligim finish transition check
+name: Kitapligim personal memory revisit
 on:
   push:
     paths:
@@ -11,20 +11,56 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fix status transition detection
+      - name: Add personal memory revisit
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="if(book) Object.assign(book,obj); else state.books.push(obj);"
-          new="const wasFinished=book?.status==='Okudum';\n    if(book) Object.assign(book,obj); else state.books.push(obj);"
+          old='<div class="archiveActions"><button id="editBookMemory"'
+          new='<div class="archiveActions"><button id="revisitBookMemory" class="btn secondary" style="margin-right:7px">Kitabı Yeniden Hatırla</button><button id="editBookMemory"'
           assert s.count(old)==1
           s=s.replace(old,new)
-          old="if((autoFinished||(!book||book.status!=='Okudum')&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);"
-          new="if((autoFinished||!wasFinished&&status==='Okudum'))showBookFinishedCelebration(obj.id); else renderBook(obj.id);"
+          old="const memoryBtn=$('#editBookMemory');if(memoryBtn)memoryBtn.onclick=()=>renderBookForm(b);"
+          new=old+" const revisitBtn=$('#revisitBookMemory');if(revisitBtn)revisitBtn.onclick=()=>showBookMemoryRevisit(id);"
           assert s.count(old)==1
           s=s.replace(old,new)
+          anchor="function formatBookFinishedDate(v){"
+          assert s.count(anchor)==1
+          addition=r'''function showBookMemoryRevisit(bookId){
+           const b=state.books.find(x=>String(x.id)===String(bookId));if(!b)return;
+           const old=document.querySelector('#bookMemoryRevisit');if(old)old.remove();
+           const quotes=state.quotes.filter(q=>String(q.bookId)===String(bookId));
+           const favorites=quotes.filter(q=>q.favorite||q.isFavorite||q.favorited);
+           const selected=(favorites.length?favorites:quotes).slice(0,3);
+           let since='';
+           if(b.finishedDate){
+            const d=new Date(String(b.finishedDate)+'T12:00:00');
+            if(!isNaN(d)){
+             const days=Math.floor((Date.now()-d.getTime())/86400000);
+             if(days>=0)since=days<1?'Bugün bitirdin':days<30?days+' gün önce bitirdin':days<365?Math.floor(days/30)+' ay önce bitirdin':Math.floor(days/365)+' yıl önce bitirdin';
+            }
+           }
+           const fields=[['Aklında kalan karakter / olay',b.favoriteCharacter],['Sende bıraktığı iz',b.themes],['Tek cümleyle hatırladığın',b.memorySentence],['Ana karakterler',b.mainCharacters],['Kitabın konusu',b.mainSubject],['Yer / ortam',b.setting]].filter(x=>String(x[1]||'').trim());
+           const overlay=document.createElement('div');
+           overlay.id='bookMemoryRevisit';
+           overlay.style.cssText='position:fixed;inset:0;z-index:1001;background:rgba(24,38,64,.55);backdrop-filter:blur(6px);display:grid;place-items:center;padding:14px;overflow-y:auto';
+           overlay.innerHTML=`<div style="width:min(470px,100%);max-height:92vh;overflow:auto;background:#fffdf8;border:1px solid #dfd2b5;border-radius:23px;padding:22px 19px">
+           <div class="eyebrow">Kişisel okuma hafızan</div><h2 class="serif" style="font-size:28px;color:#182640;margin:7px 0">${esc(b.title||'Kitabın')}</h2>
+           <p class="muted" style="font-size:13px">${esc(since|| (b.finishedDate?formatBookFinishedDate(b.finishedDate):'Okuduğun bir kitap'))}</p>
+           <div style="border-top:1px solid #e4d7c0;margin:14px 0"></div>
+           <h3 class="serif" style="font-size:21px;margin:0 0 12px">Sende kalanlar</h3>
+           ${fields.length?fields.map(([label,value])=>'<div style="margin-bottom:13px"><div class="eyebrow" style="font-size:10px">'+esc(label)+'</div><div style="font-size:14px;line-height:1.6;color:#302f2b;margin-top:4px;white-space:pre-wrap">'+esc(String(value))+'</div></div>').join(''):'<p class="muted" style="font-size:13px">Henüz kişisel hatırlama notu eklemedin. Bu kitabın hafızasını dilediğin zaman tamamlayabilirsin.</p>'}
+           <h3 class="serif" style="font-size:21px;margin:19px 0 10px">Altını çizdiklerin</h3>
+           ${selected.length?selected.map(q=>'<div style="background:#f7f1e6;border-radius:13px;padding:12px;margin-bottom:9px;font-family:Georgia,serif;font-size:14px;line-height:1.6;color:#302f2b">'+esc(String(q.text||''))+'<div class="muted" style="font-family:system-ui;font-size:11px;margin-top:6px">Sayfa '+esc(String(q.page||'—'))+'</div></div>').join(''):'<p class="muted" style="font-size:13px">Bu kitap için henüz alıntı kaydedilmemiş.</p>'}
+           <button id="memoryRevisitClose" style="width:100%;margin-top:12px">Kitabıma dön</button></div>`;
+           document.body.appendChild(overlay);
+           const close=()=>overlay.remove();
+           overlay.querySelector('#memoryRevisitClose').onclick=close;
+           overlay.onclick=e=>{if(e.target===overlay)close()};
+          }
+          '''
+          s=s.replace(anchor,addition+anchor)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -33,5 +69,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Fix finished status transition for memory prompts"
+          git commit -m "Add personal book memory revisit"
           git push
