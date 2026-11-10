@@ -1,4 +1,4 @@
-name: Kitapligim navigation update
+name: Kitapligim data headings polish
 on:
   push:
     paths:
@@ -11,72 +11,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply isolated navigation update
-        shell: bash
+      - name: Normalize data page headings only
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="function show(id){views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id)); window.scrollTo({top:0,behavior:'smooth'})}"
-          new="""let navigationStack=[],navigationRestoring=false;
-          function activeView(){return views.find(v=>!$('#'+v).classList.contains('hidden'))||'libraryView'}
-          function updateNavigationControls(){
-           const back=$('#appSmartBack');if(!back)return;
-           back.classList.toggle('hidden',navigationStack.length===0);
-           const current=activeView();
-           const root=current==='libraryView'?'library':current==='scanView'?'scan':current==='dataView'?'data':'';
-           $$('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===root));
-          }
-          function restoreAppScreen(entry){
-           if(!entry)return;
-           navigationRestoring=true;
-           try{
-            if(entry.view==='bookDetailView'&&entry.bookId&&state.books.some(b=>b.id===entry.bookId))renderBook(entry.bookId);
-            else if(entry.view==='miniView'&&entry.bookId&&state.books.some(b=>b.id===entry.bookId))renderMini(entry.bookId);
-            else if(entry.view==='bookFormView')renderBookForm(entry.bookId?state.books.find(b=>b.id===entry.bookId)||null:null);
-            else if(entry.view==='quoteFormView'&&entry.bookId)renderQuoteForm(entry.bookId);
-            else {show(entry.view);if(entry.view==='libraryView')renderLibrary();if(entry.view==='scanView')refreshBookSelect();}
-           }finally{navigationRestoring=false;updateNavigationControls()}
-          }
-          function appGoBack(){
-           const prev=navigationStack.pop();
-           if(prev)restoreAppScreen(prev);else {navigationRestoring=true;show('libraryView');renderLibrary();navigationRestoring=false;}
-           updateNavigationControls();
-          }
-          function show(id){
-           const previous=activeView();
-           if(!navigationRestoring&&previous!==id){
-            navigationStack.push({view:previous,bookId:currentBookId});
-            if(navigationStack.length>25)navigationStack.shift();
-           }
-           views.forEach(v=>$('#'+v).classList.toggle('hidden',v!==id));
-           window.scrollTo({top:0,behavior:'instant'});
-           updateNavigationControls();
-          }
-          document.addEventListener('DOMContentLoaded',()=>{
-           const back=document.createElement('button');
-           back.id='appSmartBack';back.type='button';back.className='hidden';
-           back.setAttribute('aria-label','Önceki ekrana dön');
-           back.textContent='← Geri';
-           back.onclick=appGoBack;
-           document.body.appendChild(back);
-           updateNavigationControls();
-          });
-          """
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          needle='</main>\n<nav>'
-          assert s.count(needle)==1
-          s=s.replace(needle,"</main>\n<style>#appSmartBack{position:fixed;left:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:45;background:#fffdf8;color:#304c66;border:1px solid #d8d1c3;border-radius:999px;padding:11px 17px;box-shadow:0 4px 16px #1b283022;font-size:14px;font-weight:700;min-height:44px}#appSmartBack.hidden{display:none!important}</style>\n<nav>")
-          p.write_text(s,encoding='utf-8')
+          marker='/* Veriler: unified section heading typography and palette */'
+          if marker not in s:
+              assert s.count('</style>')>=1
+              s=s.replace('</style>',"\n/* Veriler: unified section heading typography and palette */\n#dataView .title{font-family:Georgia,\"Times New Roman\",serif!important;color:#102238!important;font-weight:700!important;letter-spacing:-.035em!important}\n#dataView .card>h2,#dataView .card>.serif,#dataView #annualSummarySafe>h2,#dataView #readingJournalSafe h2,#dataView #monthlyReadingCalendar h2{font-family:Georgia,\"Times New Roman\",serif!important;color:#102238!important;font-weight:650!important;letter-spacing:-.035em!important;line-height:1.2!important}\n#dataView .eyebrow,#dataView #annualSummarySafe>.eyebrow,#dataView #readingJournalSafe>.eyebrow,#dataView #monthlyReadingCalendar>.eyebrow{font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif!important;font-size:11px!important;font-weight:700!important;letter-spacing:.075em!important;color:#92703c!important}\n#dataView #annualSummarySafe>div[style*=\"grid-template-columns\"]>div div[style*=\"Georgia\"],#dataView #readingJournalSafe>div[style*=\"grid-template-columns\"]>div div[style*=\"Georgia\"]{font-family:system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif!important;font-weight:700!important;font-size:27px!important;color:#102238!important}\n\n"+'</style>',1)
+              p.write_text(s,encoding='utf-8')
           PY
-      - name: Commit update
-        shell: bash
+      - name: Commit scoped style
         run: |
           if git diff --quiet -- index.html; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Add consistent in-app back navigation"
+          git commit -m "Unify data dashboard heading fonts and colors"
           git push
