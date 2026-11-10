@@ -1,4 +1,4 @@
-name: Kitapligim guarded mobile back
+name: Kitapligim mobile layout polish
 on:
   push:
     paths:
@@ -11,50 +11,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Guard mobile back navigation
+      - name: Improve narrow screen layout
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
-          old="""function appGoBack(){
-           if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}
-           const prev=navigationStack.pop();"""
-          new="""// Keep an in-app browser-history entry for edit forms so mobile back gestures
-          // reach the same guarded navigation as the visible Back button.
-          let guardedHistorySerial=0;
-          function armEditHistory(){
-           if(!window.history||!window.history.pushState)return;
-           const form=editGuardForm();
-           if(!form)return;
-           try{
-            const marker='kitapligim-edit-'+(++guardedHistorySerial);
-            history.pushState({kitapligimEditMarker:marker},'',location.href);
-           }catch(err){console.warn('Kitaplığım: mobil geri hareketi bağlanamadı',err)}
+          anchor='/* Kitapligim - modern reading calendar, scoped and non-destructive */'
+          css="""/* Mobile readability and keyboard-safe form refinements; scoped to app views. */
+          #libraryView .book,#bookDetailView .bookDetailHero,#miniView .miniHero{min-width:0}
+          #libraryView .book>*,#bookDetailView .bookDetailHero>*,#miniView .miniHero>*{min-width:0}
+          #libraryView .book h3,#libraryView .bookAuthor,#bookDetailView .bookDetailAuthor,#miniView .miniTitle,
+          #bookDetailView .quote,#miniView .miniFlowText,#quoteFormView textarea,#bookFormView textarea,
+          #bookDetailView .note{overflow-wrap:anywhere;word-break:normal}
+          #bookFormView .row>div,#quoteFormView .grid>div{min-width:0}
+          #bookFormView input,#bookFormView textarea,#bookFormView select,
+          #quoteFormView input,#quoteFormView textarea,#quoteFormView select{max-width:100%;font-size:16px}
+          #bookFormView .formActions button,#quoteFormView .formActions button{min-height:44px}
+          #bookFormView input:focus,#bookFormView textarea:focus,#bookFormView select:focus,
+          #quoteFormView input:focus,#quoteFormView textarea:focus,#quoteFormView select:focus{scroll-margin-bottom:160px}
+          @media(max-width:420px){
+           #bookFormView .row{align-items:flex-start;gap:10px}
+           #bookFormView .coverPreview{width:76px;height:112px}
+           #bookFormView .row #coverPreviewWrap{flex:0 0 76px}
+           #bookFormView .formActions,#quoteFormView .formActions{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+           #bookFormView .formActions button,#quoteFormView .formActions button{width:100%;white-space:normal}
+           #bookDetailView .quote{font-size:clamp(17px,5vw,22px)}
+           #miniView .miniFlowText{font-size:clamp(17px,4.8vw,21px)}
           }
-          window.addEventListener('popstate',()=>{
-           if(!editGuardForm())return;
-           // Browser has already moved back one history entry. Restore the in-app
-           // sentinel before showing the warning, so Cancel remains on this page.
-           armEditHistory();
-           appGoBack();
-          });
-          function appGoBack(){
-           if(!editGuardBypass&&editGuardDirty()){editGuardDialog(()=>appGoBack());return}
-           const prev=navigationStack.pop();"""
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          # arm after edit form is initialized; don't create duplicate entry when restoring
-          old="  editGuardCapture();\n}\n\nfunction askBookFinishedPlace"
-          new="  editGuardCapture();\n  if(!navigationRestoring)armEditHistory();\n}\n\nfunction askBookFinishedPlace"
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          old="  editGuardCapture();\n}\nfunction miniEscRegExp"
-          new="  editGuardCapture();\n  if(!navigationRestoring)armEditHistory();\n}\nfunction miniEscRegExp"
-          assert s.count(old)==1
-          s=s.replace(old,new)
-          # Fix discard on browser back and regular navigation: a single guard remains in appGoBack
-          # Preserve user-approved UI and other data flows.
+          @media(max-width:350px){
+           #libraryView .book{grid-template-columns:70px minmax(0,1fr);gap:10px}
+           #libraryView .book .cover{width:70px;height:105px}
+           #bookDetailView .bookDetailHero{grid-template-columns:76px minmax(0,1fr);gap:10px}
+           #bookDetailView .bookDetailCover{width:76px;height:112px}
+           #bookDetailView .bookDetailTitle{font-size:23px}
+          }
+          """
+          assert s.count(anchor)==1
+          s=s.replace(anchor,css+'\n'+anchor)
           p.write_text(s,encoding='utf-8')
           PY
       - name: Commit
@@ -63,5 +57,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Route mobile back gestures through unsaved-edit guard"
+          git commit -m "Improve narrow mobile forms and long text wrapping"
           git push
