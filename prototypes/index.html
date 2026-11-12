@@ -3,7 +3,7 @@
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#233047;background:#f6f4ef}*{box-sizing:border-box}body{margin:0}.wrap{max-width:640px;margin:auto;padding:24px 18px}h1{font-size:1.5rem}p{line-height:1.5;color:#5b6572}.panel{background:white;border:1px solid #e4e1d9;border-radius:16px;padding:18px;margin:16px 0}button,.upload{display:inline-block;background:#253956;color:white;border:0;border-radius:10px;padding:12px 16px;font:inherit;cursor:pointer}button:disabled{opacity:.5}textarea,input{font:inherit;width:100%;padding:12px;border:1px solid #ccc;border-radius:10px}textarea{min-height:130px;resize:vertical}label{display:block;margin:12px 0 6px;font-weight:600}img{width:100%;max-height:440px;object-fit:contain;background:#eee;border-radius:10px}.hint{font-size:.9rem}#status{color:#374b66}input[type=file]{display:block;width:100%;margin:10px 0;padding:10px;background:#f7f8fa;border:1px solid #ddd}.row{display:flex;gap:8px;flex-wrap:wrap}button.secondary{background:#e7eaf0;color:#253956}
 </style></head><body><main class="wrap"><h1>Alıntı Yakala</h1><p>Bu ekran bağımsız bir denemedir. Mevcut kitaplarınızı ve kayıtlarınızı değiştirmez.</p>
-<section class="panel"><label for="photo">1. Kitap sayfasını çek veya seç</label><input id="photo" type="file" accept="image/*"><p class="hint">iPhone’da “Fotoğraf Seç” veya “Fotoğraf Çek” seçeneklerinden birini kullanın.</p><div id="preview"></div><p class="hint">Fotoğrafı taratın, ilk ve son kelimeyi seçin. Ardından ekleme/çıkarma moduyla kelimelere tek tek dokunun. Yakınlaştırmak için iki parmağınızı kullanın.</p><button id="scan" type="button">Yazıları tara ve seç</button><button type="button" class="secondary" id="resetSelection">Seçimi sıfırla</button><div class="row" style="margin-top:12px"><button type="button" id="addWord" class="secondary">＋ Kelime ekle</button><button type="button" id="removeWord" class="secondary">− Kelime çıkar</button></div><p id="modeHint" class="hint">Önce ilk ve son kelimeyi seç; sonra ekle/çıkar düğmelerini kullan.</p><p id="status" role="status">Önce fotoğraf seç, sonra tarama düğmesine bas.</p></section>
+<section class="panel"><label for="photo">1. Kitap sayfasını çek veya seç</label><input id="photo" type="file" accept="image/*"><p class="hint">iPhone’da “Fotoğraf Seç” veya “Fotoğraf Çek” seçeneklerinden birini kullanın.</p><div id="preview"></div><p class="hint">Fotoğrafı taratın, ilk ve son kelimeyi seçin. Ardından ekleme/çıkarma moduyla kelimelere tek tek dokunun. Yakınlaştırmak için iki parmağınızı kullanın.</p><button id="scan" type="button">Yazıları tara ve seç</button><button type="button" class="secondary" id="resetSelection">Seçimi sıfırla</button><div class="row" style="margin-top:12px"><button type="button" id="zoomIn" class="secondary">＋ Yakınlaştır</button><button type="button" id="zoomOut" class="secondary">− Uzaklaştır</button></div><div class="row" style="margin-top:12px"><button type="button" id="addWord" class="secondary">＋ Kelime ekle</button><button type="button" id="removeWord" class="secondary">− Kelime çıkar</button></div><p id="modeHint" class="hint">Önce ilk ve son kelimeyi seç; sonra ekle/çıkar düğmelerini kullan.</p><p id="status" role="status">Önce fotoğraf seç, sonra tarama düğmesine bas.</p></section>
 <section class="panel"><label for="quote">2. Yalnızca işaretlediğin cümleleri kontrol et</label><textarea id="quote" placeholder="İşaretli metin burada görünecek."></textarea><p class="hint">Bu deneysel algılama hatalı kelimeler seçebilir. Kaydetmeden önce kontrol edin.</p><label for="book">Kitap adı</label><input id="book" placeholder="Kitabın adını yazın"><label for="page">Sayfa numarası (isteğe bağlı)</label><input id="page" inputmode="numeric" type="number" min="1"><div class="row" style="margin-top:16px"><button id="save">Deneme kaydı oluştur</button><button class="secondary" id="clear">Temizle</button></div><p id="saveStatus" role="status"></p></section>
 <section class="panel"><h2>Deneme alıntıları</h2><div id="records"></div><p class="hint">Bu prototipte kayıtlar sadece bu sekme açıkken tutulur; asıl Kitaplığım veritabanına yazılmaz.</p></section></main>
 <script>
@@ -86,7 +86,7 @@ function markedLinesFromOCR(lines,strokes,c){
 function paint(c,items){const canvas=document.createElement('canvas');canvas.width=c.width;canvas.height=c.height;const x=canvas.getContext('2d');x.drawImage(c,0,0);x.fillStyle='rgba(66,153,255,.28)';x.strokeStyle='rgba(35,112,231,.8)';x.lineWidth=1;for(const t of items){const b=t.bbox;x.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);x.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}canvas.style.width='100%';canvas.style.borderRadius='10px';$('preview').replaceChildren(canvas)}
 let ocrLoader=null;window.addEventListener('error',e=>{$('status').textContent='Uygulama hatası: '+(e.message||'Bilinmeyen hata')});window.addEventListener('unhandledrejection',e=>{$('status').textContent='İşlem hatası: '+String(e.reason?.message||e.reason)});
 function loadOCR(){if(window.Tesseract)return Promise.resolve();if(ocrLoader)return ocrLoader;ocrLoader=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(Error('OCR kütüphanesi indirilemedi. İnternet bağlantınızı kontrol edin.'));document.head.append(script)});return ocrLoader}
-let wordList=[],start=-1,end=-1,view=null,base=null,refineToken=0,selectedWords=new Set(),editMode='toggle';
+let wordList=[],start=-1,end=-1,view=null,base=null,refineToken=0,selectedWords=new Set(),editMode='toggle',zoom=1;
 function extractWords(blocks){
  const all=[];function visit(n){if(!n)return;if(Array.isArray(n)){n.forEach(visit);return}if(n.words?.length){all.push(...n.words.filter(w=>w.bbox&&w.text?.trim()));return}if(n.lines?.length){visit(n.lines);return}if(n.paragraphs?.length){visit(n.paragraphs);return}if(n.blocks?.length)visit(n.blocks)}visit(blocks);
  // Some OCR "words" contain several words in one oversized box.
@@ -114,6 +114,9 @@ function extractWords(blocks){
  }
  return rows.sort((a,b)=>a.cy-b.cy).flatMap(r=>r.words.sort((a,b)=>a.bbox.x0-b.bbox.x0))
 }
+$('zoomIn').onclick=()=>setZoom(Math.min(3,zoom+.5));
+$('zoomOut').onclick=()=>setZoom(Math.max(1,zoom-.5));
+function setZoom(n){zoom=n;if(view)view.style.width=(zoom*100)+'%';}
 function redraw(){
  if(!view)return;const ctx=view.getContext('2d');ctx.drawImage(base,0,0,view.width,view.height);
  ctx.fillStyle='rgba(45,135,255,.34)';
@@ -160,18 +163,23 @@ function tapWord(e){
   const yGap=Math.abs((last.y0+last.y1-first.y0-first.y1)/2);
   if(yGap>lineHeight*6.5){$('status').textContent='Seçim çok uzak. Son kelimeyi aynı alıntının en fazla 6 satır aşağısından seç veya ayrı bir alıntı oluştur.';return}
   end=best;selectedWords=new Set();
-  const a=Math.min(start,end),z=Math.max(start,end);
-  for(let i=a;i<=z;i++){
-   const b=wordList[i].bbox;
-   const hh=b.y1-b.y0;
-   if(hh>lineHeight*2.1)continue;
+  const p=wordList[start].bbox,q=wordList[end].bbox;
+  const pY=(p.y0+p.y1)/2,qY=(q.y0+q.y1)/2;
+  const top=pY<=qY?p:q,bottom=pY<=qY?q:p;
+  const topY=Math.min(pY,qY),bottomY=Math.max(pY,qY);
+  for(let i=0;i<wordList.length;i++){
+   const b=wordList[i].bbox,cy=(b.y0+b.y1)/2,cx=(b.x0+b.x1)/2;
+   if(b.y1-b.y0>lineHeight*2.1)continue;
+   if(cy<topY-lineHeight*.45||cy>bottomY+lineHeight*.45)continue;
+   if(Math.abs(cy-topY)<lineHeight*.55&&cx<(top.x0+top.x1)/2)continue;
+   if(Math.abs(cy-bottomY)<lineHeight*.55&&cx>(bottom.x0+bottom.x1)/2)continue;
    selectedWords.add(i)
   }
  }
  else {if(editMode==='add')selectedWords.add(best);else if(editMode==='remove')selectedWords.delete(best);else if(selectedWords.has(best))selectedWords.delete(best);else selectedWords.add(best)}
  refineToken++;redraw();if(end>=0)$('modeHint').textContent='Seçili kelime: '+selectedWords.size+'. '+(editMode==='add'?'Eksik kelimeye dokun.':editMode==='remove'?'Fazla kelimeye dokun.':'Kelime ekle veya çıkar modunu seç.');
 }
-$('scan').onclick=async()=>{if(!originalImage){$('status').textContent='Önce fotoğraf seç.';return}$('scan').disabled=true;let worker;try{$('status').textContent='OCR hazırlanıyor…';await loadOCR();const c=await prepare();worker=await Tesseract.createWorker('tur',1,{logger:m=>{if(m.status==='recognizing text')$('status').textContent='Metin okunuyor: %'+Math.round(m.progress*100)}});await worker.setParameters({tessedit_pageseg_mode:'6'});const res=await worker.recognize(c,{}, {blocks:true});wordList=extractWords(res.data.blocks);if(!wordList.length)wordList=(res.data.words||[]).filter(w=>w.bbox&&w.text);if(!wordList.length)throw Error('Kelime konumları bulunamadı');base=c;view=document.createElement('canvas');view.width=c.width;view.height=c.height;view.style.cssText='width:100%;height:auto;display:block;touch-action:manipulation;cursor:crosshair';view.addEventListener('click',tapWord);$('preview').replaceChildren(view);start=-1;end=-1;selectedWords.clear();redraw();$('status').textContent=wordList.length+' kelime okundu. İlk kelimeye dokun.'}catch(err){$('status').textContent='Tarama hatası: '+(err.message||String(err))}finally{$('scan').disabled=false;if(worker)worker.terminate().catch(()=>{})}};
+$('scan').onclick=async()=>{if(!originalImage){$('status').textContent='Önce fotoğraf seç.';return}$('scan').disabled=true;let worker;try{$('status').textContent='OCR hazırlanıyor…';await loadOCR();const c=await prepare();worker=await Tesseract.createWorker('tur',1,{logger:m=>{if(m.status==='recognizing text')$('status').textContent='Metin okunuyor: %'+Math.round(m.progress*100)}});await worker.setParameters({tessedit_pageseg_mode:'6'});const res=await worker.recognize(c,{}, {blocks:true});wordList=extractWords(res.data.blocks);if(!wordList.length)wordList=(res.data.words||[]).filter(w=>w.bbox&&w.text);if(!wordList.length)throw Error('Kelime konumları bulunamadı');base=c;view=document.createElement('canvas');view.width=c.width;view.height=c.height;view.style.cssText='width:100%;height:auto;display:block;touch-action:manipulation;cursor:crosshair';view.addEventListener('click',tapWord);$('preview').style.cssText='overflow-x:auto;max-width:100%;border-radius:10px';$('preview').replaceChildren(view);zoom=1;start=-1;end=-1;selectedWords.clear();redraw();$('status').textContent=wordList.length+' kelime okundu. İlk kelimeye dokun.'}catch(err){$('status').textContent='Tarama hatası: '+(err.message||String(err))}finally{$('scan').disabled=false;if(worker)worker.terminate().catch(()=>{})}};
 $('save').onclick=()=>{const quote=$('quote').value.trim(),book=$('book').value.trim();if(!quote||!book){$('saveStatus').textContent='Kitap adı ve alıntı gerekli.';return}records.unshift({book,quote,page:$('page').value});render();$('saveStatus').textContent='Deneme listesine eklendi; gerçek kütüphaneye kaydedilmedi.'};
 $('clear').onclick=()=>{$('quote').value='';$('book').value='';$('page').value='';$('saveStatus').textContent=''};
 function render(){const target=$('records');target.replaceChildren();for(const r of records){const article=document.createElement('article');article.style.borderTop='1px solid #ddd';article.style.padding='12px 0';const title=document.createElement('strong');title.textContent=r.book+(r.page?' · s. '+r.page:'');const quote=document.createElement('p');quote.textContent=r.quote;article.append(title,quote);target.append(article)}}
