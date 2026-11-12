@@ -43,33 +43,39 @@ function findUnderlines(c){
  }
  return groups.filter(g=>g.count>=2)
 }
-function markedLinesFromOCR(lines,strokes){
- // Each underline belongs to the nearest text line immediately ABOVE it,
- // never to a heading or a later paragraph.
- const picked=new Set();
- for(const st of strokes){
-   const midX=(st.x0+st.x1)/2;
-   const midY=st.y;
-   let best=-1,bestScore=Infinity;
-   for(let i=0;i<lines.length;i++){
-     const b=lines[i].bbox;if(!b)continue;
-     const h=b.y1-b.y0,overlap=Math.max(0,Math.min(st.x1,b.x1)-Math.max(st.x0,b.x0));
-     if(overlap<Math.min(st.x1-st.x0,b.x1-b.x0)*.35)continue;
-     const baseline=b.y1+(midX-b.x0)*.02;
-     const delta=midY-baseline;
-     if(delta< -h*.12||delta>h*.7)continue;
-     const score=Math.abs(delta)+Math.max(0,b.y0-midY)*4;
-     if(score<bestScore){bestScore=score;best=i}
+function markedLinesFromOCR(lines,strokes,c){
+ const w=c.width,h=c.height,d=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
+ const dark=(x,y)=>{x=Math.round(x);y=Math.round(y);if(x<0||y<0||x>=w||y>=h)return false;const i=(y*w+x)*4;return Math.min(d[i],d[i+1],d[i+2])<130&&(d[i]+d[i+1]+d[i+2])<520};
+ const sorted=lines.filter(l=>l.bbox&&l.text).sort((a,b)=>a.bbox.y0-b.bbox.y0);
+ const heights=sorted.map(l=>l.bbox.y1-l.bbox.y0).filter(v=>v>5).sort((a,b)=>a-b);
+ const typical=heights[Math.floor(heights.length/2)]||22;
+ return sorted.filter(l=>{
+  const b=l.bbox,hh=b.y1-b.y0,ww=b.x1-b.x0;
+  if(hh>typical*1.55||ww<w*.18)return false;
+  // Find a nearly continuous slanted pen stroke immediately beneath this text line.
+  const x0=Math.max(0,Math.round(b.x0+ww*.04)),x1=Math.min(w-1,Math.round(b.x1-ww*.04));
+  let best=0;
+  for(const slope of [-.10,-.07,-.04,0,.04,.07,.10]){
+   for(let offset=-hh*.02;offset<=hh*.48;offset+=Math.max(2,hh*.1)){
+    let hit=0,total=0,run=0,longest=0;
+    for(let x=x0;x<=x1;x+=3){
+     const yy=b.y1+offset+(x-x0)*slope;
+     let found=false;
+     for(let dy=-1;dy<=1;dy++)if(dark(x,yy+dy)){found=true;break}
+     total++;if(found){hit++;run++;longest=Math.max(longest,run)}else run=0;
+    }
+    const coverage=hit/Math.max(1,total);
+    if(coverage>.64&&longest/Math.max(1,total)>.22)best=Math.max(best,coverage)
    }
-   if(best>=0)picked.add(best)
- }
- return [...picked].map(i=>lines[i]).sort((a,b)=>a.bbox.y0-b.bbox.y0)
+  }
+  return best>.64
+ })
 }
 function paint(c,items){const canvas=document.createElement('canvas');canvas.width=c.width;canvas.height=c.height;const x=canvas.getContext('2d');x.drawImage(c,0,0);x.fillStyle='rgba(66,153,255,.28)';x.strokeStyle='rgba(35,112,231,.8)';x.lineWidth=1;for(const t of items){const b=t.bbox;x.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);x.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}canvas.style.width='100%';canvas.style.borderRadius='10px';$('preview').replaceChildren(canvas)}
 let ocrLoader=null;window.addEventListener('error',e=>{$('status').textContent='Uygulama hatası: '+(e.message||'Bilinmeyen hata')});window.addEventListener('unhandledrejection',e=>{$('status').textContent='İşlem hatası: '+String(e.reason?.message||e.reason)});
 function loadOCR(){if(window.Tesseract)return Promise.resolve();if(ocrLoader)return ocrLoader;ocrLoader=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(Error('OCR kütüphanesi indirilemedi. İnternet bağlantınızı kontrol edin.'));document.head.append(script)});return ocrLoader}
 $('scan').onclick=async()=>{$('status').textContent='Butona basıldı. Fotoğraf kontrol ediliyor…';if(!selected){$('status').textContent='Önce fotoğraf seçmelisin.';return}if(!originalImage){$('status').textContent='Fotoğraf hâlâ hazırlanıyor veya açılamadı. Fotoğrafı yeniden seç.';return}$('scan').disabled=true;$('status').textContent='Fotoğraf okunuyor…';let worker;try{$('status').textContent='Fotoğraf hazırlanıyor…';const c=await prepare();await new Promise(resolve=>setTimeout(resolve,50));const strokes=findUnderlines(c);const visible=document.createElement('canvas');visible.width=c.width;visible.height=c.height;visible.getContext('2d').drawImage(c,0,0);visible.style.width='100%';visible.style.height='auto';visible.style.display='block';$('preview').replaceChildren(visible);$('status').textContent=strokes.length+' olası alt çizgi bulundu. Yazılar okunuyor…';await new Promise(resolve=>setTimeout(resolve,100));await loadOCR();$('status').textContent='Türkçe OCR modeli yükleniyor… İlk seferde 1 dakika sürebilir.';await new Promise(resolve=>setTimeout(resolve,50));worker=await Tesseract.createWorker('tur',1,{logger:m=>{if(m.status==='recognizing text')$('status').textContent='Türkçe OCR: %'+Math.round((m.progress||0)*100);else if(m.status)$('status').textContent='OCR: '+m.status}});await worker.setParameters({tessedit_pageseg_mode:'6'});$('status').textContent='Metin taranıyor…';const res=await worker.recognize(c,{}, {blocks:true});let lines=[];const walk=n=>{if(!n)return;if(Array.isArray(n)){n.forEach(walk);return}if(n.lines?.length){walk(n.lines);return}if(n.paragraphs?.length){walk(n.paragraphs);return}if(n.blocks?.length){walk(n.blocks);return}if(n.words?.length&&n.bbox){lines.push(n);return}if(n.text&&n.bbox)lines.push(n)};walk(res.data.blocks);if(!lines.length)walk(res.data.lines);
- const matched=markedLinesFromOCR(lines,strokes);
+ const matched=markedLinesFromOCR(lines,strokes,c);
  const selected=matched.map(l=>({bbox:l.bbox,text:l.text||l.words?.map(w=>w.text).join(' ')||''}));
  paint(c,selected);
  $('quote').value=selected.map(l=>l.text.trim()).filter(Boolean).join(' ').replace(/-\\s+/g,'').replace(/\\s+/g,' ').trim();
