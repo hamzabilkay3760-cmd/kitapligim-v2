@@ -14,29 +14,34 @@ $('photo').addEventListener('change',async e=>{const id=++selectionId;selected=e
 async function prepare(){if(!originalImage)throw Error('Önce fotoğrafın önizlemesini bekleyin');const image=originalImage;const scale=Math.min(1,2000/image.naturalWidth,2600/image.naturalHeight);const c=document.createElement('canvas');c.width=Math.max(1,Math.round(image.naturalWidth*scale));c.height=Math.max(1,Math.round(image.naturalHeight*scale));const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(image,0,0,c.width,c.height);return c}
 function findUnderlines(c){
  const w=c.width,h=c.height,p=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
- const raw=[],minLength=Math.max(75,Math.round(w*.19));
- // A genuine pen underline has a nearly continuous thin stroke. Printed words
- // contain repeated gaps; never bridge those gaps into an artificial line.
- for(let y=4;y<h-4;y+=2){
-   let begin=-1,last=-1,miss=0;
-   for(let x=0;x<w;x++){
-     const i=(y*w+x)*4,r=p[i],g=p[i+1],b=p[i+2];
-     const ink=Math.min(r,g,b)<120 && (r+g+b)<485;
-     if(ink){if(begin<0)begin=x;last=x;miss=0}
-     else if(begin>=0&&++miss>3){
-       if(last-begin>=minLength)raw.push({x0:begin,x1:last,y});
-       begin=-1;last=-1;miss=0
-     }
+ const ink=(x,y)=>{if(x<0||y<0||x>=w||y>=h)return false;const i=(Math.round(y)*w+Math.round(x))*4;return Math.min(p[i],p[i+1],p[i+2])<135&&(p[i]+p[i+1]+p[i+2])<520};
+ const candidates=[],minLength=Math.max(70,Math.round(w*.17));
+ // Follow sloping strokes rather than requiring one perfectly horizontal pixel row.
+ for(let y=12;y<h-12;y+=5){
+  for(let x=0;x<w-minLength;x+=18){
+   if(!ink(x,y))continue;
+   let best=null;
+   for(const slope of [-.09,-.06,-.03,0,.03,.06,.09]){
+    let hits=0,longestGap=0,gap=0,last=0;
+    for(let dx=0;dx<minLength;dx+=3){
+     const yy=y+dx*slope;
+     let found=false;
+     for(let off=-2;off<=2;off++)if(ink(x+dx,yy+off)){found=true;break}
+     if(found){hits++;last=dx;gap=0}else{gap++;longestGap=Math.max(longestGap,gap)}
+    }
+    const ratio=hits/Math.ceil(minLength/3);
+    if(ratio>.82&&longestGap<5&&(!best||ratio>best.ratio))best={ratio,slope,last}
    }
-   if(begin>=0&&last-begin>=minLength)raw.push({x0:begin,x1:last,y})
+   if(best)candidates.push({x0:x,x1:x+minLength,y:y+minLength*best.slope*.5,slope:best.slope,ratio:best.ratio})
+  }
  }
  const groups=[];
- for(const st of raw){
-   const g=groups.find(q=>Math.abs(q.y-st.y)<=5&&Math.min(q.x1,st.x1)-Math.max(q.x0,st.x0)>Math.min(q.x1-q.x0,st.x1-st.x0)*.7);
-   if(g){g.x0=Math.min(g.x0,st.x0);g.x1=Math.max(g.x1,st.x1);g.y=Math.round((g.y+st.y)/2);g.count++}
-   else groups.push({...st,count:1})
+ for(const st of candidates){
+  const g=groups.find(q=>Math.abs(q.y-st.y)<12&&Math.abs(q.slope-st.slope)<.055&&st.x0<=q.x1+20&&st.x1>=q.x0-20);
+  if(g){g.x0=Math.min(g.x0,st.x0);g.x1=Math.max(g.x1,st.x1);g.y=(g.y+st.y)/2;g.count++}
+  else groups.push({...st,count:1})
  }
- return groups.filter(g=>g.x1-g.x0>=minLength)
+ return groups.filter(g=>g.count>=2)
 }
 function markedLinesFromOCR(lines,strokes){
  const used=new Set();
@@ -45,7 +50,7 @@ function markedLinesFromOCR(lines,strokes){
   const height=b.y1-b.y0,width=b.x1-b.x0;
   return strokes.some((st,i)=>{
    const overlap=Math.max(0,Math.min(st.x1,b.x1)-Math.max(st.x0,b.x0));
-   const valid=st.y>=b.y0+height*.67&&st.y<=b.y1+height*.85+Math.max(5,height*.23)&&overlap>width*.38;
+   const valid=st.y>=b.y0+height*.55&&st.y<=b.y1+Math.max(8,height*.35)&&overlap>width*.38;
    if(valid)used.add(i);return valid
   })
  }).sort((a,b)=>a.bbox.y0-b.bbox.y0)
