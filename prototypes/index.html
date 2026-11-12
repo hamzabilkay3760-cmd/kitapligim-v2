@@ -45,30 +45,29 @@ function findUnderlines(c){
 }
 function markedLinesFromOCR(lines,strokes,c){
  const w=c.width,h=c.height,d=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
- const dark=(x,y)=>{x=Math.round(x);y=Math.round(y);if(x<0||y<0||x>=w||y>=h)return false;const i=(y*w+x)*4;return Math.min(d[i],d[i+1],d[i+2])<130&&(d[i]+d[i+1]+d[i+2])<520};
+ const ink=(x,y)=>{x=Math.round(x);y=Math.round(y);if(x<0||y<0||x>=w||y>=h)return false;const i=(y*w+x)*4;return Math.min(d[i],d[i+1],d[i+2])<135&&(d[i]+d[i+1]+d[i+2])<520};
  const sorted=lines.filter(l=>l.bbox&&l.text).sort((a,b)=>a.bbox.y0-b.bbox.y0);
  const heights=sorted.map(l=>l.bbox.y1-l.bbox.y0).filter(v=>v>5).sort((a,b)=>a-b);
  const typical=heights[Math.floor(heights.length/2)]||22;
  return sorted.filter(l=>{
   const b=l.bbox,hh=b.y1-b.y0,ww=b.x1-b.x0;
-  if(hh>typical*1.55||ww<w*.18)return false;
-  // Find a nearly continuous slanted pen stroke immediately beneath this text line.
+  if(hh>typical*1.65||ww<w*.16)return false;
   const x0=Math.max(0,Math.round(b.x0+ww*.04)),x1=Math.min(w-1,Math.round(b.x1-ww*.04));
   let best=0;
-  for(const slope of [-.10,-.07,-.04,0,.04,.07,.10]){
-   for(let offset=-hh*.02;offset<=hh*.48;offset+=Math.max(2,hh*.1)){
+  for(const slope of [-.12,-.09,-.06,-.03,0,.03,.06,.09,.12]){
+   for(let offset=-hh*.52;offset<=hh*.48;offset+=Math.max(2,hh*.09)){
     let hit=0,total=0,run=0,longest=0;
     for(let x=x0;x<=x1;x+=3){
      const yy=b.y1+offset+(x-x0)*slope;
      let found=false;
-     for(let dy=-1;dy<=1;dy++)if(dark(x,yy+dy)){found=true;break}
+     for(let dy=-2;dy<=2;dy++)if(ink(x,yy+dy)){found=true;break}
      total++;if(found){hit++;run++;longest=Math.max(longest,run)}else run=0;
     }
     const coverage=hit/Math.max(1,total);
-    if(coverage>.64&&longest/Math.max(1,total)>.22)best=Math.max(best,coverage)
+    if(coverage>.76&&longest/Math.max(1,total)>.32)best=Math.max(best,coverage)
    }
   }
-  return best>.64
+  return best>.76
  })
 }
 function paint(c,items){const canvas=document.createElement('canvas');canvas.width=c.width;canvas.height=c.height;const x=canvas.getContext('2d');x.drawImage(c,0,0);x.fillStyle='rgba(66,153,255,.28)';x.strokeStyle='rgba(35,112,231,.8)';x.lineWidth=1;for(const t of items){const b=t.bbox;x.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);x.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}canvas.style.width='100%';canvas.style.borderRadius='10px';$('preview').replaceChildren(canvas)}
@@ -79,7 +78,7 @@ $('scan').onclick=async()=>{$('status').textContent='Butona basıldı. Fotoğraf
  const selected=matched.map(l=>({bbox:l.bbox,text:l.text||l.words?.map(w=>w.text).join(' ')||''}));
  paint(c,selected);
  $('quote').value=selected.map(l=>l.text.trim()).filter(Boolean).join(' ').replace(/-\\s+/g,'').replace(/\\s+/g,' ').trim();
- $('status').textContent=strokes.length+' alt çizgi adayı, '+lines.length+' OCR satırı, '+selected.length+' eşleşen satır. '+(selected.length?'Alıntıyı kontrol edin.':'Henüz güvenilir eşleşme yok; fotoğrafı kontrol edin.');
+ $('status').textContent=lines.length+' OCR satırı, '+selected.length+' çizgiyle eşleşen satır (yeni satır-tabanlı yöntem). '+(selected.length?'Alıntıyı kontrol edin.':'Henüz güvenilir eşleşme yok; fotoğrafı kontrol edin.');
  }catch(err){$('status').textContent='Test hatası: '+(err.message||String(err))}finally{$('scan').disabled=false;if(worker)worker.terminate().catch(()=>{})}};
 $('save').onclick=()=>{const quote=$('quote').value.trim(),book=$('book').value.trim();if(!quote||!book){$('saveStatus').textContent='Kitap adı ve alıntı gerekli.';return}records.unshift({book,quote,page:$('page').value});render();$('saveStatus').textContent='Deneme listesine eklendi; gerçek kütüphaneye kaydedilmedi.'};
 $('clear').onclick=()=>{$('quote').value='';$('book').value='';$('page').value='';$('saveStatus').textContent=''};
