@@ -117,7 +117,7 @@ function extractWords(blocks){
 function redraw(){
  if(!view)return;const ctx=view.getContext('2d');ctx.drawImage(base,0,0,view.width,view.height);
  ctx.fillStyle='rgba(45,135,255,.34)';
- for(const i of selectedWords){const b=wordList[i]?.bbox;if(b)ctx.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}
+ for(const i of selectedWords){const b=wordList[i]?.bbox;if(b){const h=b.y1-b.y0,w=b.x1-b.x0;ctx.fillRect(b.x0,b.y0,Math.min(w,Math.max(22,h*9)),Math.min(h,Math.max(12,view.height*.025)))}}
  $('quote').value=[...selectedWords].sort((a,b)=>a-b).map(i=>wordList[i].text).join(' ').replace(/\s+([,.;:!?])/g,'$1').replace(/-\s+/g,'').trim();
  $('status').textContent=end>=0?'Mavi kelimeye dokun: çıkar. Mavi olmayan kelimeye dokun: ekle.':start>=0?'Şimdi son kelimeye dokun.':'İlk kelimeye dokun.';
 }
@@ -154,7 +154,20 @@ function tapWord(e){
  let best=-1,dist=Infinity;wordList.forEach((w,i)=>{const b=w.bbox,dx=x-Math.max(b.x0,Math.min(x,b.x1)),dy=y-Math.max(b.y0,Math.min(y,b.y1)),d=Math.hypot(dx,dy);if(d<dist){dist=d;best=i}});
  if(best<0||dist>Math.max(12,view.width*.012)){$('status').textContent='Bir kelimeye daha yakın dokun.';return}
  if(start<0){start=best;end=-1;selectedWords=new Set([best])}
- else if(end<0){end=best;selectedWords=new Set();for(let i=Math.min(start,end);i<=Math.max(start,end);i++)selectedWords.add(i)}
+ else if(end<0){
+  const first=wordList[start].bbox,last=wordList[best].bbox;
+  const lineHeight=Math.max(10,Math.min(first.y1-first.y0,last.y1-last.y0));
+  const yGap=Math.abs((last.y0+last.y1-first.y0-first.y1)/2);
+  if(yGap>lineHeight*6.5){$('status').textContent='Seçim çok uzak. Son kelimeyi aynı alıntının en fazla 6 satır aşağısından seç veya ayrı bir alıntı oluştur.';return}
+  end=best;selectedWords=new Set();
+  const a=Math.min(start,end),z=Math.max(start,end);
+  for(let i=a;i<=z;i++){
+   const b=wordList[i].bbox;
+   const hh=b.y1-b.y0;
+   if(hh>lineHeight*2.1)continue;
+   selectedWords.add(i)
+  }
+ }
  else {if(editMode==='add')selectedWords.add(best);else if(editMode==='remove')selectedWords.delete(best);else if(selectedWords.has(best))selectedWords.delete(best);else selectedWords.add(best)}
  refineToken++;redraw();if(end>=0)$('modeHint').textContent='Seçili kelime: '+selectedWords.size+'. '+(editMode==='add'?'Eksik kelimeye dokun.':editMode==='remove'?'Fazla kelimeye dokun.':'Kelime ekle veya çıkar modunu seç.');
 }
