@@ -44,16 +44,26 @@ function findUnderlines(c){
  return groups.filter(g=>g.count>=2)
 }
 function markedLinesFromOCR(lines,strokes){
- const used=new Set();
- return lines.filter(l=>{
-  const b=l.bbox;if(!b)return false;
-  const height=b.y1-b.y0,width=b.x1-b.x0;
-  return strokes.some((st,i)=>{
-   const overlap=Math.max(0,Math.min(st.x1,b.x1)-Math.max(st.x0,b.x0));
-   const valid=st.y>=b.y0+height*.55&&st.y<=b.y1+Math.max(8,height*.35)&&overlap>width*.38;
-   if(valid)used.add(i);return valid
-  })
- }).sort((a,b)=>a.bbox.y0-b.bbox.y0)
+ // Each underline belongs to the nearest text line immediately ABOVE it,
+ // never to a heading or a later paragraph.
+ const picked=new Set();
+ for(const st of strokes){
+   const midX=(st.x0+st.x1)/2;
+   const midY=st.y;
+   let best=-1,bestScore=Infinity;
+   for(let i=0;i<lines.length;i++){
+     const b=lines[i].bbox;if(!b)continue;
+     const h=b.y1-b.y0,overlap=Math.max(0,Math.min(st.x1,b.x1)-Math.max(st.x0,b.x0));
+     if(overlap<Math.min(st.x1-st.x0,b.x1-b.x0)*.35)continue;
+     const baseline=b.y1+(midX-b.x0)*.02;
+     const delta=midY-baseline;
+     if(delta< -h*.12||delta>h*.7)continue;
+     const score=Math.abs(delta)+Math.max(0,b.y0-midY)*4;
+     if(score<bestScore){bestScore=score;best=i}
+   }
+   if(best>=0)picked.add(best)
+ }
+ return [...picked].map(i=>lines[i]).sort((a,b)=>a.bbox.y0-b.bbox.y0)
 }
 function paint(c,items){const canvas=document.createElement('canvas');canvas.width=c.width;canvas.height=c.height;const x=canvas.getContext('2d');x.drawImage(c,0,0);x.fillStyle='rgba(66,153,255,.28)';x.strokeStyle='rgba(35,112,231,.8)';x.lineWidth=1;for(const t of items){const b=t.bbox;x.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);x.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}canvas.style.width='100%';canvas.style.borderRadius='10px';$('preview').replaceChildren(canvas)}
 let ocrLoader=null;window.addEventListener('error',e=>{$('status').textContent='Uygulama hatası: '+(e.message||'Bilinmeyen hata')});window.addEventListener('unhandledrejection',e=>{$('status').textContent='İşlem hatası: '+String(e.reason?.message||e.reason)});
