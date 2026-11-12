@@ -104,11 +104,26 @@ async function refineSelection(token){
   const ctx=crop.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,crop.width,crop.height);ctx.imageSmoothingQuality='high';ctx.drawImage(base,x,y,width,height,0,0,crop.width,crop.height);
   worker=await Tesseract.createWorker('tur');
   await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
-  const result=await worker.recognize(crop);
+  const result=await worker.recognize(crop,{}, {blocks:true});
   if(token!==refineToken||start<0||end<0)return;
-  const improved=(result.data.text||'').replace(/-\s*\n\s*/g,'').replace(/\s*\n\s*/g,' ').replace(/\s+([,.;:!?])/g,'$1').replace(/\s{2,}/g,' ').trim();
-  if(improved.length>10){$('quote').value=improved;$('status').textContent='İkinci okuma tamamlandı. Metni kontrol edip gerekiyorsa düzelt.'}
-  else $('status').textContent='İkinci okumada yeterli metin bulunamadı. İlk okuma korundu.';
+  const second=extractWords(result.data.blocks||[]);
+  const first=chosen.map(w=>w.text);
+  // Align the second pass to the exact original word positions. Never append words outside the selection.
+  const merged=chosen.map((original,i)=>{
+   const cx=(original.bbox.x0+original.bbox.x1)/2,cy=(original.bbox.y0+original.bbox.y1)/2;
+   const candidates=second.filter(w=>{
+    const b=w.bbox,wx=x+(b.x0+b.x1)/(2*zoom),wy=y+(b.y0+b.y1)/(2*zoom);
+    return Math.abs(wx-cx)<Math.max(16,(original.bbox.x1-original.bbox.x0)*.65)&&Math.abs(wy-cy)<Math.max(10,(original.bbox.y1-original.bbox.y0)*.7)
+   }).sort((a,b)=>(b.confidence||0)-(a.confidence||0));
+   const candidate=candidates[0];
+   if(!candidate)return original.text;
+   const newText=candidate.text.trim(),oldText=original.text.trim();
+   const good=(candidate.confidence||0)>=78&&newText.length>=Math.max(2,oldText.length*.65)&&newText.length<=oldText.length*1.45&&!/\d/.test(newText)&&!/[A-ZÇĞİÖŞÜ]{3}/.test(newText);
+   return good?newText:oldText
+  });
+  if(token!==refineToken)return;
+  $('quote').value=merged.join(' ').replace(/\s+([,.;:!?])/g,'$1').replace(/-\s+/g,'').trim();
+  $('status').textContent='Sınır korumalı ikinci okuma tamamlandı. Metni kontrol et.';
  }catch(err){if(token===refineToken)$('status').textContent='İkinci okuma yapılamadı; ilk metin korundu: '+err.message}
  finally{if(worker)worker.terminate().catch(()=>{})}
 }
