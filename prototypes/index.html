@@ -97,7 +97,7 @@ async function refineSelection(token){
  try{
   const minX=Math.min(...chosen.map(w=>w.bbox.x0)),maxX=Math.max(...chosen.map(w=>w.bbox.x1));
   const minY=Math.min(...chosen.map(w=>w.bbox.y0)),maxY=Math.max(...chosen.map(w=>w.bbox.y1));
-  const padX=14,padY=12,x=Math.max(0,Math.floor(minX-padX)),y=Math.max(0,Math.floor(minY-padY));
+  const padX=4,padY=3,x=Math.max(0,Math.floor(minX-padX)),y=Math.max(0,Math.floor(minY-padY));
   const width=Math.min(base.width-x,Math.ceil(maxX-minX+padX*2)),height=Math.min(base.height-y,Math.ceil(maxY-minY+padY*2));
   const zoom=Math.min(2.5,2600/Math.max(width,height));
   const crop=document.createElement('canvas');crop.width=Math.round(width*zoom);crop.height=Math.round(height*zoom);
@@ -106,24 +106,11 @@ async function refineSelection(token){
   await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
   const result=await worker.recognize(crop,{}, {blocks:true});
   if(token!==refineToken||start<0||end<0)return;
-  const second=extractWords(result.data.blocks||[]);
-  const first=chosen.map(w=>w.text);
-  // Align the second pass to the exact original word positions. Never append words outside the selection.
-  const merged=chosen.map((original,i)=>{
-   const cx=(original.bbox.x0+original.bbox.x1)/2,cy=(original.bbox.y0+original.bbox.y1)/2;
-   const candidates=second.filter(w=>{
-    const b=w.bbox,wx=x+(b.x0+b.x1)/(2*zoom),wy=y+(b.y0+b.y1)/(2*zoom);
-    return Math.abs(wx-cx)<Math.max(16,(original.bbox.x1-original.bbox.x0)*.65)&&Math.abs(wy-cy)<Math.max(10,(original.bbox.y1-original.bbox.y0)*.7)
-   }).sort((a,b)=>(b.confidence||0)-(a.confidence||0));
-   const candidate=candidates[0];
-   if(!candidate)return original.text;
-   const newText=candidate.text.trim(),oldText=original.text.trim();
-   const good=(candidate.confidence||0)>=78&&newText.length>=Math.max(2,oldText.length*.65)&&newText.length<=oldText.length*1.45&&!/\d/.test(newText)&&!/[A-ZÇĞİÖŞÜ]{3}/.test(newText);
-   return good?newText:oldText
-  });
+  // The second pass is the source of the quote: do not restrict it to the first pass word count.
+  const improved=(result.data.text||'').replace(/-\s*\n\s*/g,'').replace(/\s*\n\s*/g,' ').replace(/\s+([,.;:!?])/g,'$1').replace(/\s{2,}/g,' ').trim();
   if(token!==refineToken)return;
-  $('quote').value=merged.join(' ').replace(/\s+([,.;:!?])/g,'$1').replace(/-\s+/g,'').trim();
-  $('status').textContent='Sınır korumalı ikinci okuma tamamlandı. Metni kontrol et.';
+  if(improved.length>4){$('quote').value=improved;$('status').textContent='Mavi seçimin tamamı yeniden okundu. Metni kontrol et.'}
+  else $('status').textContent='Seçilen bölge okunamadı; ilk metin korundu.';
  }catch(err){if(token===refineToken)$('status').textContent='İkinci okuma yapılamadı; ilk metin korundu: '+err.message}
  finally{if(worker)worker.terminate().catch(()=>{})}
 }
