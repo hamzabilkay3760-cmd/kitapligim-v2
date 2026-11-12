@@ -86,7 +86,7 @@ function markedLinesFromOCR(lines,strokes,c){
 function paint(c,items){const canvas=document.createElement('canvas');canvas.width=c.width;canvas.height=c.height;const x=canvas.getContext('2d');x.drawImage(c,0,0);x.fillStyle='rgba(66,153,255,.28)';x.strokeStyle='rgba(35,112,231,.8)';x.lineWidth=1;for(const t of items){const b=t.bbox;x.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);x.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}canvas.style.width='100%';canvas.style.borderRadius='10px';$('preview').replaceChildren(canvas)}
 let ocrLoader=null;window.addEventListener('error',e=>{$('status').textContent='Uygulama hatası: '+(e.message||'Bilinmeyen hata')});window.addEventListener('unhandledrejection',e=>{$('status').textContent='İşlem hatası: '+String(e.reason?.message||e.reason)});
 function loadOCR(){if(window.Tesseract)return Promise.resolve();if(ocrLoader)return ocrLoader;ocrLoader=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(Error('OCR kütüphanesi indirilemedi. İnternet bağlantınızı kontrol edin.'));document.head.append(script)});return ocrLoader}
-let wordList=[],start=-1,end=-1,view=null,base=null,refineToken=0,selectedWords=new Set(),editMode='toggle',zoom=1;
+let wordList=[],start=-1,end=-1,view=null,base=null,refineToken=0,selectedWords=new Set(),editMode='toggle',zoom=1,anchorStart=null,anchorEnd=null;
 function extractWords(blocks){
  const all=[];function visit(n){if(!n)return;if(Array.isArray(n)){n.forEach(visit);return}if(n.words?.length){all.push(...n.words.filter(w=>w.bbox&&w.text?.trim()));return}if(n.lines?.length){visit(n.lines);return}if(n.paragraphs?.length){visit(n.paragraphs);return}if(n.blocks?.length)visit(n.blocks)}visit(blocks);
  // Some OCR "words" contain several words in one oversized box.
@@ -121,6 +121,7 @@ function redraw(){
  if(!view)return;const ctx=view.getContext('2d');ctx.drawImage(base,0,0,view.width,view.height);
  ctx.fillStyle='rgba(45,135,255,.34)';
  for(const i of selectedWords){const b=wordList[i]?.bbox;if(b){const h=b.y1-b.y0,w=b.x1-b.x0;ctx.fillRect(b.x0,b.y0,Math.min(w,Math.max(22,h*9)),Math.min(h,Math.max(12,view.height*.025)))}}
+ if(anchorStart){ctx.strokeStyle='#0b65d8';ctx.lineWidth=Math.max(2,view.width/500);for(const p of [anchorStart,anchorEnd].filter(Boolean)){ctx.beginPath();ctx.arc(p.x,p.y,Math.max(6,view.width/180),0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-10,p.y);ctx.lineTo(p.x+10,p.y);ctx.moveTo(p.x,p.y-10);ctx.lineTo(p.x,p.y+10);ctx.stroke()}}
  $('quote').value=[...selectedWords].sort((a,b)=>a-b).map(i=>wordList[i].text).join(' ').replace(/\s+([,.;:!?])/g,'$1').replace(/-\s+/g,'').trim();
  $('status').textContent=end>=0?'Mavi kelimeye dokun: çıkar. Mavi olmayan kelimeye dokun: ekle.':start>=0?'Şimdi son kelimeye dokun.':'İlk kelimeye dokun.';
 }
@@ -149,37 +150,33 @@ async function refineSelection(token){
  }catch(err){if(token===refineToken)$('status').textContent='İkinci okuma yapılamadı; ilk metin korundu: '+err.message}
  finally{if(worker)worker.terminate().catch(()=>{})}
 }
-$('resetSelection').onclick=()=>{start=-1;end=-1;selectedWords.clear();refineToken++;$('quote').value='';redraw()};
+$('resetSelection').onclick=()=>{start=-1;end=-1;anchorStart=null;anchorEnd=null;selectedWords.clear();refineToken++;$('quote').value='';redraw()};
 $('addWord').onclick=()=>{editMode='add';$('modeHint').textContent='EKLEME MODU: Fotoğrafta eksik kalan kelimeye dokun.';$('addWord').style.background='#253956';$('addWord').style.color='white';$('removeWord').style.background='';$('removeWord').style.color=''};
 $('removeWord').onclick=()=>{editMode='remove';$('modeHint').textContent='ÇIKARMA MODU: Fotoğrafta fazladan mavi olan kelimeye dokun.';$('removeWord').style.background='#253956';$('removeWord').style.color='white';$('addWord').style.background='';$('addWord').style.color=''};
-$('chooseEnd').onclick=()=>{if(start<0){$('status').textContent='Önce ilk kelimeyi seç.';return}end=-1;editMode='toggle';$('modeHint').textContent='Şimdi alıntının SON kelimesine dokun. Önceki bitiş değiştirilecek.';$('status').textContent='Son kelimeyi seç.'};
+$('chooseEnd').onclick=()=>{if(start<0){$('status').textContent='Önce ilk kelimeyi seç.';return}end=-1;anchorEnd=null;editMode='toggle';$('modeHint').textContent='Şimdi alıntının SON kelimesine dokun. Önceki bitiş değiştirilecek.';$('status').textContent='Son kelimeyi seç.'};
 function tapWord(e){
  const r=view.getBoundingClientRect(),x=(e.clientX-r.left)*view.width/r.width,y=(e.clientY-r.top)*view.height/r.height;
+ const p={x,y};
  let best=-1,dist=Infinity;wordList.forEach((w,i)=>{const b=w.bbox,dx=x-Math.max(b.x0,Math.min(x,b.x1)),dy=y-Math.max(b.y0,Math.min(y,b.y1)),d=Math.hypot(dx,dy);if(d<dist){dist=d;best=i}});
- if(best<0||dist>Math.max(22,view.width*.025)){$('status').textContent='Bir kelimeye daha yakın dokun.';return}
- if(start<0){start=best;end=-1;selectedWords=new Set([best])}
+ if(start<0){start=best;anchorStart=p;anchorEnd=null;end=-1;selectedWords=new Set(best>=0?[best]:[])}
  else if(end<0){
-  const first=wordList[start].bbox,last=wordList[best].bbox;
-  const lineHeight=Math.max(10,Math.min(first.y1-first.y0,last.y1-last.y0));
-  const yGap=Math.abs((last.y0+last.y1-first.y0-first.y1)/2);
-  end=best;selectedWords=new Set();
-  const p=wordList[start].bbox,q=wordList[end].bbox;
-  const pY=(p.y0+p.y1)/2,qY=(q.y0+q.y1)/2;
-  const top=pY<=qY?p:q,bottom=pY<=qY?q:p;
-  const topY=Math.min(pY,qY),bottomY=Math.max(pY,qY);
+  end=best;anchorEnd=p;selectedWords=new Set();
+  const top=anchorStart.y<=p.y?anchorStart:p,bottom=anchorStart.y<=p.y?p:anchorStart;
+  const heights=wordList.map(w=>w.bbox.y1-w.bbox.y0).sort((a,b)=>a-b),h=heights[Math.floor(heights.length/2)]||16;
   for(let i=0;i<wordList.length;i++){
-   const b=wordList[i].bbox,cy=(b.y0+b.y1)/2,cx=(b.x0+b.x1)/2;
-   if(b.y1-b.y0>lineHeight*2.1)continue;
-   if(cy<topY-lineHeight*.45||cy>bottomY+lineHeight*.45)continue;
-   if(Math.abs(cy-topY)<lineHeight*.55&&cx<(top.x0+top.x1)/2)continue;
-   if(Math.abs(cy-bottomY)<lineHeight*.55&&cx>(bottom.x0+bottom.x1)/2)continue;
+   const b=wordList[i].bbox,cx=(b.x0+b.x1)/2,cy=(b.y0+b.y1)/2;
+   if(cy<top.y-h*.5||cy>bottom.y+h*.5)continue;
+   if(Math.abs(cy-top.y)<h*.65&&cx<top.x)continue;
+   if(Math.abs(cy-bottom.y)<h*.65&&cx>bottom.x)continue;
    selectedWords.add(i)
   }
+ }else{
+  if(best<0||dist>Math.max(22,view.width*.025)){$('status').textContent='Bu noktada OCR kelime bulamadı. Metin kutusundan elle düzeltebilirsin.';return}
+  if(editMode==='add')selectedWords.add(best);else if(editMode==='remove')selectedWords.delete(best);else if(selectedWords.has(best))selectedWords.delete(best);else selectedWords.add(best)
  }
- else {if(editMode==='add')selectedWords.add(best);else if(editMode==='remove')selectedWords.delete(best);else if(selectedWords.has(best))selectedWords.delete(best);else selectedWords.add(best)}
- refineToken++;redraw();if(end>=0)$('modeHint').textContent='Seçili kelime: '+selectedWords.size+'. '+(editMode==='add'?'Eksik kelimeye dokun.':editMode==='remove'?'Fazla kelimeye dokun.':'Kelime ekle veya çıkar modunu seç.');
+ refineToken++;redraw();$('modeHint').textContent=end>=0?'Başlangıç ve bitiş işaretleri fotoğraftaki dokunduğun noktalar. Eksik OCR kelimelerini metin kutusunda tamamlayabilirsin.':'Şimdi alıntının son kelimesine dokun.';
 }
-$('scan').onclick=async()=>{if(!originalImage){$('status').textContent='Önce fotoğraf seç.';return}$('scan').disabled=true;let worker;try{$('status').textContent='OCR hazırlanıyor…';await loadOCR();const c=await prepare();worker=await Tesseract.createWorker('tur',1,{logger:m=>{if(m.status==='recognizing text')$('status').textContent='Metin okunuyor: %'+Math.round(m.progress*100)}});await worker.setParameters({tessedit_pageseg_mode:'6'});const res=await worker.recognize(c,{}, {blocks:true});wordList=extractWords(res.data.blocks);if(!wordList.length)wordList=(res.data.words||[]).filter(w=>w.bbox&&w.text);if(!wordList.length)throw Error('Kelime konumları bulunamadı');base=c;view=document.createElement('canvas');view.width=c.width;view.height=c.height;view.style.cssText='width:100%;height:auto;display:block;touch-action:manipulation;cursor:crosshair';view.addEventListener('click',tapWord);$('preview').style.cssText='overflow-x:auto;max-width:100%;border-radius:10px';$('preview').replaceChildren(view);zoom=1;start=-1;end=-1;selectedWords.clear();redraw();$('status').textContent=wordList.length+' kelime okundu. İlk kelimeye dokun.'}catch(err){$('status').textContent='Tarama hatası: '+(err.message||String(err))}finally{$('scan').disabled=false;if(worker)worker.terminate().catch(()=>{})}};
+$('scan').onclick=async()=>{if(!originalImage){$('status').textContent='Önce fotoğraf seç.';return}$('scan').disabled=true;let worker;try{$('status').textContent='OCR hazırlanıyor…';await loadOCR();const c=await prepare();worker=await Tesseract.createWorker('tur',1,{logger:m=>{if(m.status==='recognizing text')$('status').textContent='Metin okunuyor: %'+Math.round(m.progress*100)}});await worker.setParameters({tessedit_pageseg_mode:'6'});const res=await worker.recognize(c,{}, {blocks:true});wordList=extractWords(res.data.blocks);if(!wordList.length)wordList=(res.data.words||[]).filter(w=>w.bbox&&w.text);if(!wordList.length)throw Error('Kelime konumları bulunamadı');base=c;view=document.createElement('canvas');view.width=c.width;view.height=c.height;view.style.cssText='width:100%;height:auto;display:block;touch-action:manipulation;cursor:crosshair';view.addEventListener('click',tapWord);$('preview').style.cssText='overflow-x:auto;max-width:100%;border-radius:10px';$('preview').replaceChildren(view);zoom=1;start=-1;end=-1;anchorStart=null;anchorEnd=null;selectedWords.clear();redraw();$('status').textContent=wordList.length+' kelime okundu. İlk kelimeye dokun.'}catch(err){$('status').textContent='Tarama hatası: '+(err.message||String(err))}finally{$('scan').disabled=false;if(worker)worker.terminate().catch(()=>{})}};
 $('save').onclick=()=>{const quote=$('quote').value.trim(),book=$('book').value.trim();if(!quote||!book){$('saveStatus').textContent='Kitap adı ve alıntı gerekli.';return}records.unshift({book,quote,page:$('page').value});render();$('saveStatus').textContent='Deneme listesine eklendi; gerçek kütüphaneye kaydedilmedi.'};
 $('clear').onclick=()=>{$('quote').value='';$('book').value='';$('page').value='';$('saveStatus').textContent=''};
 function render(){const target=$('records');target.replaceChildren();for(const r of records){const article=document.createElement('article');article.style.borderTop='1px solid #ddd';article.style.padding='12px 0';const title=document.createElement('strong');title.textContent=r.book+(r.page?' · s. '+r.page:'');const quote=document.createElement('p');quote.textContent=r.quote;article.append(title,quote);target.append(article)}}
