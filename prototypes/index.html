@@ -3,7 +3,7 @@
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#233047;background:#f6f4ef}*{box-sizing:border-box}body{margin:0}.wrap{max-width:640px;margin:auto;padding:24px 18px}h1{font-size:1.5rem}p{line-height:1.5;color:#5b6572}.panel{background:white;border:1px solid #e4e1d9;border-radius:16px;padding:18px;margin:16px 0}button,.upload{display:inline-block;background:#253956;color:white;border:0;border-radius:10px;padding:12px 16px;font:inherit;cursor:pointer}button:disabled{opacity:.5}textarea,input{font:inherit;width:100%;padding:12px;border:1px solid #ccc;border-radius:10px}textarea{min-height:130px;resize:vertical}label{display:block;margin:12px 0 6px;font-weight:600}img{width:100%;max-height:440px;object-fit:contain;background:#eee;border-radius:10px}.hint{font-size:.9rem}#status{color:#374b66}input[type=file]{display:block;width:100%;margin:10px 0;padding:10px;background:#f7f8fa;border:1px solid #ddd}.row{display:flex;gap:8px;flex-wrap:wrap}button.secondary{background:#e7eaf0;color:#253956}
 </style></head><body><main class="wrap"><h1>Alıntı Yakala</h1><p>Bu ekran bağımsız bir denemedir. Mevcut kitaplarınızı ve kayıtlarınızı değiştirmez.</p>
-<section class="panel"><label for="photo">1. Kitap sayfasını çek veya seç</label><input id="photo" type="file" accept="image/*"><p class="hint">iPhone’da “Fotoğraf Seç” veya “Fotoğraf Çek” seçeneklerinden birini kullanın.</p><div id="preview"></div><p class="hint">Fotoğrafı taratın; alıntının ilk ve son kelimesine dokunun. Mavi alan aktarılacak metni gösterir.</p><button id="scan" type="button">Yazıları tara ve seç</button><button type="button" class="secondary" id="resetSelection">Seçimi sıfırla</button><div class="row" style="margin-top:12px"><button type="button" id="addWord" class="secondary">＋ Kelime ekle</button><button type="button" id="removeWord" class="secondary">− Kelime çıkar</button></div><p id="modeHint" class="hint">Önce ilk ve son kelimeyi seç; sonra ekle/çıkar düğmelerini kullan.</p><p id="status" role="status">Önce fotoğraf seç, sonra tarama düğmesine bas.</p></section>
+<section class="panel"><label for="photo">1. Kitap sayfasını çek veya seç</label><input id="photo" type="file" accept="image/*"><p class="hint">iPhone’da “Fotoğraf Seç” veya “Fotoğraf Çek” seçeneklerinden birini kullanın.</p><div id="preview"></div><p class="hint">Fotoğrafı taratın, ilk ve son kelimeyi seçin. Ardından ekleme/çıkarma moduyla kelimelere tek tek dokunun. Yakınlaştırmak için iki parmağınızı kullanın.</p><button id="scan" type="button">Yazıları tara ve seç</button><button type="button" class="secondary" id="resetSelection">Seçimi sıfırla</button><div class="row" style="margin-top:12px"><button type="button" id="addWord" class="secondary">＋ Kelime ekle</button><button type="button" id="removeWord" class="secondary">− Kelime çıkar</button></div><p id="modeHint" class="hint">Önce ilk ve son kelimeyi seç; sonra ekle/çıkar düğmelerini kullan.</p><p id="status" role="status">Önce fotoğraf seç, sonra tarama düğmesine bas.</p></section>
 <section class="panel"><label for="quote">2. Yalnızca işaretlediğin cümleleri kontrol et</label><textarea id="quote" placeholder="İşaretli metin burada görünecek."></textarea><p class="hint">Bu deneysel algılama hatalı kelimeler seçebilir. Kaydetmeden önce kontrol edin.</p><label for="book">Kitap adı</label><input id="book" placeholder="Kitabın adını yazın"><label for="page">Sayfa numarası (isteğe bağlı)</label><input id="page" inputmode="numeric" type="number" min="1"><div class="row" style="margin-top:16px"><button id="save">Deneme kaydı oluştur</button><button class="secondary" id="clear">Temizle</button></div><p id="saveStatus" role="status"></p></section>
 <section class="panel"><h2>Deneme alıntıları</h2><div id="records"></div><p class="hint">Bu prototipte kayıtlar sadece bu sekme açıkken tutulur; asıl Kitaplığım veritabanına yazılmaz.</p></section></main>
 <script>
@@ -89,6 +89,23 @@ function loadOCR(){if(window.Tesseract)return Promise.resolve();if(ocrLoader)ret
 let wordList=[],start=-1,end=-1,view=null,base=null,refineToken=0,selectedWords=new Set(),editMode='toggle';
 function extractWords(blocks){
  const all=[];function visit(n){if(!n)return;if(Array.isArray(n)){n.forEach(visit);return}if(n.words?.length){all.push(...n.words.filter(w=>w.bbox&&w.text?.trim()));return}if(n.lines?.length){visit(n.lines);return}if(n.paragraphs?.length){visit(n.paragraphs);return}if(n.blocks?.length)visit(n.blocks)}visit(blocks);
+ // Some OCR "words" contain several words in one oversized box.
+ // Split those boxes into individually tappable approximate regions.
+ const split=[];
+ for(const w of all){
+  const parts=w.text.trim().split(/\s+/).filter(Boolean);
+  if(parts.length<2){split.push(w);continue}
+  const total=parts.reduce((n,p)=>n+p.length,0)+parts.length-1;
+  let offset=0;
+  for(const p of parts){
+   const left=w.bbox.x0+(w.bbox.x1-w.bbox.x0)*offset/total;
+   offset+=p.length;
+   const right=w.bbox.x0+(w.bbox.x1-w.bbox.x0)*offset/total;
+   offset++;
+   split.push({...w,text:p,bbox:{...w.bbox,x0:left,x1:right}})
+  }
+ }
+ all.splice(0,all.length,...split);
  // Group by physical text line, not by OCR block or paragraph ordering.
  const heights=all.map(w=>w.bbox.y1-w.bbox.y0).filter(v=>v>3).sort((a,b)=>a-b),median=heights[Math.floor(heights.length/2)]||18;
  const rows=[];for(const w of all.sort((a,b)=>(a.bbox.y0+a.bbox.y1)-(b.bbox.y0+b.bbox.y1))){
@@ -135,7 +152,7 @@ $('removeWord').onclick=()=>{editMode='remove';$('modeHint').textContent='ÇIKAR
 function tapWord(e){
  const r=view.getBoundingClientRect(),x=(e.clientX-r.left)*view.width/r.width,y=(e.clientY-r.top)*view.height/r.height;
  let best=-1,dist=Infinity;wordList.forEach((w,i)=>{const b=w.bbox,dx=x-Math.max(b.x0,Math.min(x,b.x1)),dy=y-Math.max(b.y0,Math.min(y,b.y1)),d=Math.hypot(dx,dy);if(d<dist){dist=d;best=i}});
- if(best<0||dist>Math.max(30,view.width*.035)){$('status').textContent='Bir kelimeye daha yakın dokun.';return}
+ if(best<0||dist>Math.max(12,view.width*.012)){$('status').textContent='Bir kelimeye daha yakın dokun.';return}
  if(start<0){start=best;end=-1;selectedWords=new Set([best])}
  else if(end<0){end=best;selectedWords=new Set();for(let i=Math.min(start,end);i<=Math.max(start,end);i++)selectedWords.add(i)}
  else {if(editMode==='add')selectedWords.add(best);else if(editMode==='remove')selectedWords.delete(best);else if(selectedWords.has(best))selectedWords.delete(best);else selectedWords.add(best)}
