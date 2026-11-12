@@ -49,9 +49,9 @@ function markedLinesFromOCR(lines,strokes,c){
  const sorted=lines.filter(l=>l.bbox&&l.text).sort((a,b)=>a.bbox.y0-b.bbox.y0);
  const heights=sorted.map(l=>l.bbox.y1-l.bbox.y0).filter(v=>v>5).sort((a,b)=>a-b);
  const typical=heights[Math.floor(heights.length/2)]||22;
- return sorted.filter(l=>{
+ const scores=sorted.map(l=>{
   const b=l.bbox,hh=b.y1-b.y0,ww=b.x1-b.x0;
-  if(hh>typical*1.65||ww<w*.16)return false;
+  if(hh>typical*1.65||ww<w*.16)return 0;
   const x0=Math.max(0,Math.round(b.x0+ww*.04)),x1=Math.min(w-1,Math.round(b.x1-ww*.04));
   let best=0;
   for(const slope of [-.12,-.09,-.06,-.03,0,.03,.06,.09,.12]){
@@ -67,8 +67,21 @@ function markedLinesFromOCR(lines,strokes,c){
     if(coverage>.76&&longest/Math.max(1,total)>.32)best=Math.max(best,coverage)
    }
   }
-  return best>.76
- })
+  return best
+ });
+ const strong=scores.map(v=>v>.76);
+ const selected=new Set(strong.flatMap((v,i)=>v?[i]:[]));
+ // Extend only into directly neighboring lines with supporting pen evidence.
+ for(let i=0;i<sorted.length;i++){
+  if(strong[i])continue;
+  const prev=i>0&&strong[i-1],next=i+1<sorted.length&&strong[i+1];
+  if(!prev&&!next)continue;
+  const b=sorted[i].bbox,neighbor=sorted[prev?i-1:i+1].bbox;
+  const gap=prev?b.y0-neighbor.y1:neighbor.y0-b.y1;
+  const aligned=Math.abs(b.x0-neighbor.x0)<w*.15;
+  if(scores[i]>.43&&gap<typical*1.5&&aligned)selected.add(i);
+ }
+ return sorted.filter((_,i)=>selected.has(i))
 }
 function paint(c,items){const canvas=document.createElement('canvas');canvas.width=c.width;canvas.height=c.height;const x=canvas.getContext('2d');x.drawImage(c,0,0);x.fillStyle='rgba(66,153,255,.28)';x.strokeStyle='rgba(35,112,231,.8)';x.lineWidth=1;for(const t of items){const b=t.bbox;x.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);x.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}canvas.style.width='100%';canvas.style.borderRadius='10px';$('preview').replaceChildren(canvas)}
 let ocrLoader=null;window.addEventListener('error',e=>{$('status').textContent='Uygulama hatası: '+(e.message||'Bilinmeyen hata')});window.addEventListener('unhandledrejection',e=>{$('status').textContent='İşlem hatası: '+String(e.reason?.message||e.reason)});
