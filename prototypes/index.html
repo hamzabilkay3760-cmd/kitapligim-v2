@@ -1,7 +1,7 @@
 <!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kitaplığım · Metinden Alıntı Seç</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f6f4ef;color:#25334b;font:16px system-ui,-apple-system,sans-serif}.wrap{max-width:650px;margin:auto;padding:20px 16px}.panel{background:#fff;border:1px solid #e5e1da;border-radius:17px;padding:18px;margin:16px 0}h1{font-size:24px}h2{font-size:19px}p{line-height:1.5;color:#586477}button{background:#253956;color:#fff;border:0;border-radius:10px;padding:12px 15px;font:inherit;margin:4px 3px 4px 0}button.secondary{background:#e9edf3;color:#253956}button:disabled{opacity:.5}input,textarea{font:inherit;width:100%;border:1px solid #cdd1d7;border-radius:10px;padding:12px}textarea{min-height:150px;resize:vertical}label{display:block;font-weight:650;margin:14px 0 7px}#preview img{display:block;width:100%;height:auto;border-radius:9px}#pageText{line-height:2;font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:120px;border:1px solid #d5d9df;border-radius:10px;padding:15px;user-select:text;-webkit-user-select:text}#pageText:focus{outline:2px solid #8db6ef}#pageText::selection{background:#91c2ff}#status{font-weight:600}small{color:#657184}#records article{border-top:1px solid #ddd;padding:12px 0}
-</style></head><body><main class="wrap"><h1>Alıntı Yakala · Metinden Seçim</h1><p>Bağımsız deneme. Mevcut Kitaplığım kayıtlarını değiştirmez.</p>
-<section class="panel"><h2>1. Kitap sayfasını yükle</h2><input type="file" accept="image/*" id="photo"><div id="preview" style="margin-top:12px"></div><label for="topCrop">Başlıkları atla (üstten): <output id="topValue">15%</output></label><input id="topCrop" type="range" min="0" max="60" value="15"><label for="bottomCrop">Metnin bittiği yer: <output id="bottomValue">95%</output></label><input id="bottomCrop" type="range" min="40" max="100" value="95"><button id="scan">Yalnızca gövde metnini oku</button><p id="status" role="status">Önce fotoğraf yükle.</p></section>
+</style></head><body><main class="wrap"><h1>Alıntı Yakala · PaddleOCR Denemesi</h1><p>Bağımsız deneme. Mevcut Kitaplığım kayıtlarını değiştirmez.</p>
+<section class="panel"><h2>1. Kitap sayfasını yükle</h2><input type="file" accept="image/*" id="photo"><div id="preview" style="margin-top:12px"></div><label for="topCrop">Başlıkları atla (üstten): <output id="topValue">15%</output></label><input id="topCrop" type="range" min="0" max="60" value="15"><label for="bottomCrop">Metnin bittiği yer: <output id="bottomValue">95%</output></label><input id="bottomCrop" type="range" min="40" max="100" value="95"><button id="scan">PaddleOCR ile gövdeyi oku</button><p id="status" role="status">Önce fotoğraf yükle.</p></section>
 <section class="panel"><h2>2. Okunan metni kontrol et</h2><p>Eksik veya yanlış kelimeleri doğrudan metnin üzerinde düzelt. Ardından alıntı yapmak istediğin kısmı parmağınla seç ve <b>Seçili metni aktar</b> düğmesine bas.</p><div id="pageText" contenteditable="true" role="textbox" aria-label="Okunan sayfa metni" spellcheck="false"></div><button id="transfer">Seçili metni aktar</button><button id="all" class="secondary">Tüm metni aktar</button><p id="selectStatus"><small>Metin henüz okunmadı.</small></p></section>
 <section class="panel"><h2>3. Alıntıyı kontrol et ve kaydet</h2><textarea id="quote" placeholder="Seçtiğin metin burada görünecek."></textarea><label for="book">Kitap adı</label><input id="book" placeholder="Kitabın adı"><label for="page">Sayfa numarası (isteğe bağlı)</label><input id="page" type="number" min="1"><button id="save">Deneme kaydı oluştur</button><p id="saveStatus"></p></section>
 <section class="panel"><h2>Deneme alıntıları</h2><div id="records"></div><small>Kayıtlar yalnızca bu sekme açıkken tutulur; ana Kitaplığım uygulamasına aktarılmaz.</small></section></main>
@@ -9,10 +9,35 @@
 const $=id=>document.getElementById(id);let image=null,records=[],ocrLoading=null;
 $('topCrop').oninput=()=>{$('topValue').textContent=$('topCrop').value+'%'};
 $('bottomCrop').oninput=()=>{$('bottomValue').textContent=$('bottomCrop').value+'%'};
-function loadOCR(){if(window.Tesseract)return Promise.resolve();if(ocrLoading)return ocrLoading;ocrLoading=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';script.onload=resolve;script.onerror=()=>reject(Error('OCR kütüphanesi yüklenemedi'));document.head.append(script)});return ocrLoading}
+let paddlePromise=null;
+async function loadOCR(){if(!paddlePromise)paddlePromise=import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm').then(m=>m.PaddleOCR.create({lang:'tr',ocrVersion:'PP-OCRv6',ortOptions:{backend:'wasm'}})).catch(e=>{paddlePromise=null;throw e});return paddlePromise}
 function imageFromURL(url){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('Fotoğraf açılamadı'));img.src=url})}
 $('photo').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;image=null;$('pageText').textContent='';$('quote').value='';$('status').textContent='Fotoğraf hazırlanıyor…';try{const url=URL.createObjectURL(file);image=await imageFromURL(url);$('preview').replaceChildren(image);$('status').textContent='Fotoğraf hazır. Tüm sayfayı oku.'}catch(err){$('status').textContent=err.message}};
-$('scan').onclick=async()=>{if(!image){$('status').textContent='Önce fotoğraf seç.';return}let worker;$('scan').disabled=true;try{await loadOCR();const c=document.createElement('canvas');const top=+$('topCrop').value/100,bottom=+$('bottomCrop').value/100;if(bottom<=top+.1)throw Error('Metin aralığını genişlet.');const sy=Math.round(image.naturalHeight*top),sh=Math.round(image.naturalHeight*(bottom-top));const scale=Math.min(1,2600/image.naturalWidth,3500/sh);c.width=Math.round(image.naturalWidth*scale);c.height=Math.round(sh*scale);c.getContext('2d').drawImage(image,0,sy,image.naturalWidth,sh,0,0,c.width,c.height);$('status').textContent='Türkçe sayfa okunuyor…';worker=await Tesseract.createWorker('tur',1,{logger:m=>{if(m.status==='recognizing text')$('status').textContent='Okunuyor: %'+Math.round(m.progress*100)}});await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});const res=await worker.recognize(c);const text=(res.data.text||'').replace(/-\s*\n\s*/g,'').replace(/[ \t]+\n/g,'\n').trim();if(!text)throw Error('Metin okunamadı');$('pageText').textContent=text;$('status').textContent='Sayfa okundu. Hataları düzeltip alıntıyı seç.'}catch(err){$('status').textContent='Okuma hatası: '+err.message}finally{$('scan').disabled=false;if(worker)worker.terminate().catch(()=>{})}};
+$('scan').onclick=async()=>{
+ if(!image){$('status').textContent='Önce fotoğraf seç.';return}
+ $('scan').disabled=true;
+ try{
+  const c=document.createElement('canvas'),top=+$('topCrop').value/100,bottom=+$('bottomCrop').value/100;
+  if(bottom<=top+.1)throw Error('Metin aralığını genişlet.');
+  const sy=Math.round(image.naturalHeight*top),sh=Math.round(image.naturalHeight*(bottom-top));
+  const scale=Math.min(1,2200/image.naturalWidth,3000/sh);
+  c.width=Math.round(image.naturalWidth*scale);c.height=Math.round(sh*scale);
+  c.getContext('2d').drawImage(image,0,sy,image.naturalWidth,sh,0,0,c.width,c.height);
+  $('status').textContent='PaddleOCR Türkçe modeli yükleniyor (ilk sefer uzun sürebilir)…';
+  const ocr=await loadOCR();
+  $('status').textContent='Sayfa satırları okunuyor…';
+  const [res]=await ocr.predict(c);
+  const lines=(res.items||[]).filter(i=>i.text?.trim()).sort((a,b)=>{
+   const ay=Math.min(...a.poly.map(p=>p[1])),by=Math.min(...b.poly.map(p=>p[1]));
+   return Math.abs(ay-by)<12?Math.min(...a.poly.map(p=>p[0]))-Math.min(...b.poly.map(p=>p[0])):ay-by
+  });
+  const text=lines.map(i=>i.text.trim()).join('\n').replace(/-\s*\n\s*/g,'').trim();
+  if(!text)throw Error('Model metin bulamadı.');
+  $('pageText').textContent=text;
+  $('status').textContent=lines.length+' satır okundu. Metni kontrol edip alıntıyı seç.';
+ }catch(err){$('status').textContent='PaddleOCR hatası: '+err.message}
+ finally{$('scan').disabled=false}
+};
 $('transfer').onpointerdown=e=>e.preventDefault();
 $('transfer').onclick=()=>{const sel=window.getSelection();if(!sel||sel.isCollapsed||!$('pageText').contains(sel.anchorNode)||!$('pageText').contains(sel.focusNode)){$('selectStatus').textContent='Önce yukarıdaki metinde alıntı bölümünü seç.';return}const value=sel.toString().trim();if(!value){$('selectStatus').textContent='Boş seçim.';return}$('quote').value=value;$('selectStatus').textContent='Seçtiğin bölüm alıntı kutusuna aktarıldı.'};
 $('all').onclick=()=>{$('quote').value=$('pageText').innerText.trim();$('selectStatus').textContent='Tüm sayfa aktarıldı.'};
