@@ -3,7 +3,7 @@
 <style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#233047;background:#f6f4ef}*{box-sizing:border-box}body{margin:0}.wrap{max-width:640px;margin:auto;padding:24px 18px}h1{font-size:1.5rem}p{line-height:1.5;color:#5b6572}.panel{background:white;border:1px solid #e4e1d9;border-radius:16px;padding:18px;margin:16px 0}button,.upload{display:inline-block;background:#253956;color:white;border:0;border-radius:10px;padding:12px 16px;font:inherit;cursor:pointer}button:disabled{opacity:.5}textarea,input{font:inherit;width:100%;padding:12px;border:1px solid #ccc;border-radius:10px}textarea{min-height:130px;resize:vertical}label{display:block;margin:12px 0 6px;font-weight:600}img{width:100%;max-height:440px;object-fit:contain;background:#eee;border-radius:10px}.hint{font-size:.9rem}#status{color:#374b66}input[type=file]{display:block;width:100%;margin:10px 0;padding:10px;background:#f7f8fa;border:1px solid #ddd}.row{display:flex;gap:8px;flex-wrap:wrap}button.secondary{background:#e7eaf0;color:#253956}
 </style></head><body><main class="wrap"><h1>Alıntı Yakala</h1><p>Bu ekran bağımsız bir denemedir. Mevcut kitaplarınızı ve kayıtlarınızı değiştirmez.</p>
-<section class="panel"><label for="photo">1. Kitap sayfasını çek veya seç</label><input id="photo" type="file" accept="image/*"><p class="hint">iPhone’da “Fotoğraf Seç” veya “Fotoğraf Çek” seçeneklerinden birini kullanın.</p><div id="preview"></div><p class="hint">Fotoğrafı yükleyin; mavi, mor ve sarı işaretler otomatik aranır. Elle alan seçimi yok.</p><button id="scan" type="button">İşaretli yazıları bul</button><p id="status" role="status">Önce fotoğraf seç, sonra tarama düğmesine bas.</p></section>
+<section class="panel"><label for="photo">1. Kitap sayfasını çek veya seç</label><input id="photo" type="file" accept="image/*"><p class="hint">iPhone’da “Fotoğraf Seç” veya “Fotoğraf Çek” seçeneklerinden birini kullanın.</p><div id="preview"></div><p class="hint">Fotoğrafı yükleyin; alt çizgiler kalem renginden bağımsız aranır. Elle alan seçimi yok.</p><button id="scan" type="button">İşaretli yazıları bul</button><p id="status" role="status">Önce fotoğraf seç, sonra tarama düğmesine bas.</p></section>
 <section class="panel"><label for="quote">2. Yalnızca işaretlediğin cümleleri kontrol et</label><textarea id="quote" placeholder="İşaretli metin burada görünecek."></textarea><p class="hint">Bu deneysel algılama hatalı kelimeler seçebilir. Kaydetmeden önce kontrol edin.</p><label for="book">Kitap adı</label><input id="book" placeholder="Kitabın adını yazın"><label for="page">Sayfa numarası (isteğe bağlı)</label><input id="page" inputmode="numeric" type="number" min="1"><div class="row" style="margin-top:16px"><button id="save">Deneme kaydı oluştur</button><button class="secondary" id="clear">Temizle</button></div><p id="saveStatus" role="status"></p></section>
 <section class="panel"><h2>Deneme alıntıları</h2><div id="records"></div><p class="hint">Bu prototipte kayıtlar sadece bu sekme açıkken tutulur; asıl Kitaplığım veritabanına yazılmaz.</p></section></main>
 <script>
@@ -13,34 +13,41 @@ function readAsDataURL(file){return new Promise((resolve,reject)=>{const reader=
 $('photo').addEventListener('change',async e=>{const id=++selectionId;selected=e.target.files&&e.target.files[0]||null;originalImage=null;$('scan').disabled=false;$('preview').replaceChildren();$('status').textContent=selected?'Fotoğraf yükleniyor: '+selected.name:'Fotoğraf seçilmedi.';if(!selected)return;try{const dataURL=await readAsDataURL(selected);if(id!==selectionId)return;const img=await imageFromURL(dataURL);if(id!==selectionId)return;originalImage=img;photoURL=dataURL;img.style.width='100%';img.style.height='auto';img.style.maxHeight='none';img.style.display='block';$('preview').append(img);$('scan').disabled=false;$('status').textContent='Fotoğraf hazır ('+img.naturalWidth+' × '+img.naturalHeight+'). İşaretli yazıları bul düğmesine basın.'}catch(err){$('status').textContent='Fotoğraf önizlemesi açılamadı: '+err.message+'. Lütfen JPEG veya PNG fotoğraf deneyin.'}});
 async function prepare(){if(!originalImage)throw Error('Önce fotoğrafın önizlemesini bekleyin');const image=originalImage;const scale=Math.min(1,2000/image.naturalWidth,2600/image.naturalHeight);const c=document.createElement('canvas');c.width=Math.max(1,Math.round(image.naturalWidth*scale));c.height=Math.max(1,Math.round(image.naturalHeight*scale));const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(image,0,0,c.width,c.height);return c}
 function findUnderlines(c){
- const w=c.width,h=c.height,data=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
- const lines=[],step=2,minimum=Math.max(65,Math.round(w*.17));
- // Look for long, narrow dark strokes, independent of pen color.
- for(let y=8;y<h-8;y+=step){
-   let start=-1,gaps=0;
-   for(let x=0;x<w;x+=2){
-     const i=(y*w+x)*4,r=data[i],g=data[i+1],b=data[i+2];
-     const dark=Math.max(r,g,b)<175 || (Math.min(r,g,b)<125&&Math.max(r,g,b)-Math.min(r,g,b)>30);
-     if(dark){if(start<0)start=x;gaps=0}
-     else if(start>=0&&++gaps>7){
-       const end=x-gaps*2;
-       if(end-start>minimum)lines.push({x0:start,x1:end,y});
-       start=-1;gaps=0
+ const w=c.width,h=c.height,p=c.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
+ const raw=[],minLength=Math.max(75,Math.round(w*.19));
+ // A genuine pen underline has a nearly continuous thin stroke. Printed words
+ // contain repeated gaps; never bridge those gaps into an artificial line.
+ for(let y=4;y<h-4;y+=2){
+   let begin=-1,last=-1,miss=0;
+   for(let x=0;x<w;x++){
+     const i=(y*w+x)*4,r=p[i],g=p[i+1],b=p[i+2];
+     const ink=Math.min(r,g,b)<120 && (r+g+b)<485;
+     if(ink){if(begin<0)begin=x;last=x;miss=0}
+     else if(begin>=0&&++miss>3){
+       if(last-begin>=minLength)raw.push({x0:begin,x1:last,y});
+       begin=-1;last=-1;miss=0
      }
    }
-   if(start>=0&&w-start>minimum)lines.push({x0:start,x1:w-1,y})
+   if(begin>=0&&last-begin>=minLength)raw.push({x0:begin,x1:last,y})
  }
- const merged=[];
- for(const l of lines){
-   const match=merged.find(v=>Math.abs(v.y-l.y)<9&&Math.min(v.x1,l.x1)-Math.max(v.x0,l.x0)>Math.min(v.x1-v.x0,l.x1-l.x0)*.55);
-   if(match){match.x0=Math.min(match.x0,l.x0);match.x1=Math.max(match.x1,l.x1);match.y=Math.round((match.y+l.y)/2)}
-   else merged.push({...l})
+ const groups=[];
+ for(const st of raw){
+   const g=groups.find(q=>Math.abs(q.y-st.y)<=5&&Math.min(q.x1,st.x1)-Math.max(q.x0,st.x0)>Math.min(q.x1-q.x0,st.x1-st.x0)*.7);
+   if(g){g.x0=Math.min(g.x0,st.x0);g.x1=Math.max(g.x1,st.x1);g.y=Math.round((g.y+st.y)/2);g.count++}
+   else groups.push({...st,count:1})
  }
- return merged.filter(l=>l.x1-l.x0>minimum)
+ return groups.filter(g=>g.x1-g.x0>=minLength)
 }
 function markedLinesFromOCR(lines,strokes){
- return lines.filter(l=>{const b=l.bbox;if(!b)return false;const height=b.y1-b.y0;
- return strokes.some(st=>st.y>=b.y0+height*.45&&st.y<=b.y1+height*.9&&st.x1>=b.x0+15&&st.x0<=b.x1-15&&Math.min(st.x1,b.x1)-Math.max(st.x0,b.x0)>(b.x1-b.x0)*.22)
+ const used=new Set();
+ return lines.filter(l=>{
+  const b=l.bbox;if(!b)return false;
+  const height=b.y1-b.y0,width=b.x1-b.x0;
+  return strokes.some((st,i)=>{
+   const overlap=Math.max(0,Math.min(st.x1,b.x1)-Math.max(st.x0,b.x0));
+   const valid=st.y>=b.y0+height*.67&&st.y<=b.y1+height*.85+Math.max(5,height*.23)&&overlap>width*.38;
+   if(valid)used.add(i);return valid
+  })
  }).sort((a,b)=>a.bbox.y0-b.bbox.y0)
 }
 function paint(c,items){const canvas=document.createElement('canvas');canvas.width=c.width;canvas.height=c.height;const x=canvas.getContext('2d');x.drawImage(c,0,0);x.fillStyle='rgba(66,153,255,.28)';x.strokeStyle='rgba(35,112,231,.8)';x.lineWidth=1;for(const t of items){const b=t.bbox;x.fillRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0);x.strokeRect(b.x0,b.y0,b.x1-b.x0,b.y1-b.y0)}canvas.style.width='100%';canvas.style.borderRadius='10px';$('preview').replaceChildren(canvas)}
