@@ -1,68 +1,83 @@
-<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kitaplığım · Metinden Alıntı Seç</title><style>
-*{box-sizing:border-box}body{margin:0;background:#f6f4ef;color:#25334b;font:16px system-ui,-apple-system,sans-serif}.wrap{max-width:650px;margin:auto;padding:20px 16px}.panel{background:#fff;border:1px solid #e5e1da;border-radius:17px;padding:18px;margin:16px 0}h1{font-size:24px}h2{font-size:19px}p{line-height:1.5;color:#586477}button{background:#253956;color:#fff;border:0;border-radius:10px;padding:12px 15px;font:inherit;margin:4px 3px 4px 0}button.secondary{background:#e9edf3;color:#253956}button:disabled{opacity:.5}input,textarea{font:inherit;width:100%;border:1px solid #cdd1d7;border-radius:10px;padding:12px}textarea{min-height:150px;resize:vertical}label{display:block;font-weight:650;margin:14px 0 7px}#preview img{display:block;width:100%;height:auto;border-radius:9px}#pageText{line-height:2;font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:120px;border:1px solid #d5d9df;border-radius:10px;padding:15px;user-select:text;-webkit-user-select:text}#pageText:focus{outline:2px solid #8db6ef}#pageText::selection{background:#91c2ff}#status{font-weight:600}small{color:#657184}#records article{border-top:1px solid #ddd;padding:12px 0}
-</style></head><body><main class="wrap"><h1>Alıntı Yakala · PaddleOCR Denemesi</h1><p>Bağımsız deneme. Mevcut Kitaplığım kayıtlarını değiştirmez.</p>
-<section class="panel"><h2>1. Kitap sayfasını yükle</h2><input type="file" accept="image/*" id="photo"><div id="preview" style="margin-top:12px"></div><label for="topCrop">Üstten kırpma (isteğe bağlı): <output id="topValue">0%</output></label><input id="topCrop" type="range" min="0" max="60" value="0"><label for="bottomCrop">Alttan bitiş (varsayılan tüm sayfa): <output id="bottomValue">100%</output></label><input id="bottomCrop" type="range" min="40" max="100" value="100"><button id="scan">Yoğun sayfayı bölerek oku</button><button id="scanFull" class="secondary">Tek parça oku (karşılaştır)</button><p><small>Bölerek okuma, yoğun sayfalarda satır kaybını azaltmayı hedefler. İki yöntemi karşılaştırabilirsin.</small></p><p id="status" role="status">Önce fotoğraf yükle.</p></section>
-<section class="panel"><h2>2. Okunan metni kontrol et</h2><p>Eksik veya yanlış kelimeleri doğrudan metnin üzerinde düzelt. Ardından alıntı yapmak istediğin kısmı parmağınla seç ve <b>Seçili metni aktar</b> düğmesine bas.</p><div id="pageText" contenteditable="true" role="textbox" aria-label="Okunan sayfa metni" spellcheck="false"></div><button id="transfer">Seçili metni aktar</button><button id="all" class="secondary">Tüm metni aktar</button><p id="selectStatus"><small>Metin henüz okunmadı.</small></p></section>
-<section class="panel"><h2>3. Alıntıyı kontrol et ve kaydet</h2><textarea id="quote" placeholder="Seçtiğin metin burada görünecek."></textarea><label for="book">Kitap adı</label><input id="book" placeholder="Kitabın adı"><label for="page">Sayfa numarası (isteğe bağlı)</label><input id="page" type="number" min="1"><button id="save">Deneme kaydı oluştur</button><p id="saveStatus"></p></section>
-<section class="panel"><h2>Deneme alıntıları</h2><div id="records"></div><small>Kayıtlar yalnızca bu sekme açıkken tutulur; ana Kitaplığım uygulamasına aktarılmaz.</small></section></main>
-<script>
-const $=id=>document.getElementById(id);let image=null,records=[],ocrLoading=null;
-$('topCrop').oninput=()=>{$('topValue').textContent=$('topCrop').value+'%'};
-$('bottomCrop').oninput=()=>{$('bottomValue').textContent=$('bottomCrop').value+'%'};
-let paddlePromise=null;
-async function loadOCR(){if(!paddlePromise)paddlePromise=import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm').then(m=>m.PaddleOCR.create({lang:'tr',ocrVersion:'PP-OCRv6',ortOptions:{backend:'wasm'}})).catch(e=>{paddlePromise=null;throw e});return paddlePromise}
-function imageFromURL(url){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('Fotoğraf açılamadı'));img.src=url})}
-$('photo').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;image=null;$('pageText').textContent='';$('quote').value='';$('status').textContent='Fotoğraf hazırlanıyor…';try{const url=URL.createObjectURL(file);image=await imageFromURL(url);$('preview').replaceChildren(image);$('status').textContent='Fotoğraf hazır. Varsayılan olarak sayfanın tamamı taranacak.'}catch(err){$('status').textContent=err.message}};
-function makeCanvas(top,bottom){
- const sy=Math.round(image.naturalHeight*top),sh=Math.round(image.naturalHeight*(bottom-top));
- const scale=Math.min(1,2200/image.naturalWidth,3000/sh);
- const c=document.createElement('canvas');c.width=Math.round(image.naturalWidth*scale);c.height=Math.round(sh*scale);
- c.getContext('2d').drawImage(image,0,sy,image.naturalWidth,sh,0,0,c.width,c.height);return c;
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kitaplığım · Alıntı Alanını Seç</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f6f4ef;color:#25334b;font:16px system-ui,-apple-system,sans-serif}.wrap{max-width:650px;margin:auto;padding:20px 16px}.panel{background:#fff;border:1px solid #e5e1da;border-radius:17px;padding:18px;margin:16px 0}h1{font-size:24px}h2{font-size:19px}p{line-height:1.5;color:#586477}button{background:#253956;color:#fff;border:0;border-radius:10px;padding:12px 15px;font:inherit;margin:4px 3px 4px 0}button.secondary{background:#e9edf3;color:#253956}button:disabled{opacity:.5}input,textarea{font:inherit;width:100%;border:1px solid #cdd1d7;border-radius:10px;padding:12px}textarea{min-height:150px;resize:vertical}label{display:block;font-weight:650;margin:14px 0 7px}#preview{position:relative;touch-action:none;user-select:none;-webkit-user-select:none}#preview img{display:block;width:100%;height:auto;border-radius:9px;pointer-events:none}#selection{position:absolute;border:2px solid #2279d3;background:rgba(48,137,231,.18);border-radius:3px;pointer-events:none;display:none}#pageText{line-height:2;font-size:18px;white-space:pre-wrap;overflow-wrap:anywhere;min-height:120px;border:1px solid #d5d9df;border-radius:10px;padding:15px;user-select:text;-webkit-user-select:text}#pageText:focus{outline:2px solid #8db6ef}#pageText::selection{background:#91c2ff}#status{font-weight:600}small{color:#657184}#records article{border-top:1px solid #ddd;padding:12px 0}
+</style></head><body><main class="wrap"><h1>Alıntı Yakala · Alan Seçimi</h1><p>Bağımsız deneme; ana Kitaplığım ve kayıtların değişmez.</p>
+<section class="panel"><h2>1. Fotoğrafı yükle ve alıntıyı çerçevele</h2><input id="photo" type="file" accept="image/*"><p>Fotoğrafın üzerinde parmağını sürükleyerek yalnızca istediğin 3–5 cümleyi kutu içine al. Yanlış seçimde tekrar çiz.</p><div id="preview"><div id="selection"></div></div><button id="scan">Seçtiğim alanı oku</button><button id="clear" class="secondary">Seçimi temizle</button><p id="status" role="status">Önce fotoğraf yükle.</p></section>
+<section class="panel"><h2>2. Okunan alıntıyı düzelt</h2><textarea id="quote" placeholder="Yalnızca çerçevelediğin alanın metni burada görünecek."></textarea><label for="book">Kitap adı</label><input id="book" placeholder="Kitabın adı"><label for="page">Sayfa numarası (isteğe bağlı)</label><input id="page" type="number" min="1"><button id="save">Deneme alıntısını kaydet</button><p id="saveStatus"></p></section><section class="panel"><h2>Deneme kayıtları</h2><div id="records"></div><small>Bu kayıtlar yalnızca açık sekmede tutulur; ana uygulamaya aktarılmaz.</small></section></main>
+<script>const $=id=>document.getElementById(id);
+let image=null,selection=null,drag=null,records=[],paddlePromise=null,photoURL=null;
+function loadOCR(){
+ if(!paddlePromise)paddlePromise=import('https://cdn.jsdelivr.net/npm/@paddleocr/paddleocr-js@0.4.2/+esm').then(m=>m.PaddleOCR.create({lang:'tr',ocrVersion:'PP-OCRv6',ortOptions:{backend:'wasm'}})).catch(e=>{paddlePromise=null;throw e});
+ return paddlePromise;
 }
-function orderLines(items){
- return items.filter(i=>i.text?.trim()&&Array.isArray(i.poly)&&i.poly.length).sort((a,b)=>{
-  const ay=Math.min(...a.poly.map(p=>p[1])),by=Math.min(...b.poly.map(p=>p[1]));
-  return Math.abs(ay-by)<12?Math.min(...a.poly.map(p=>p[0]))-Math.min(...b.poly.map(p=>p[0])):ay-by;
- });
+$('photo').onchange=e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ if(photoURL)URL.revokeObjectURL(photoURL);
+ photoURL=URL.createObjectURL(file);image=null;selection=null;draw();
+ const img=new Image();
+ img.onload=()=>{image=img;const old=$('preview').querySelector('img');if(old)old.remove();$('preview').prepend(img);$('status').textContent='Fotoğraf hazır. Alıntının çevresine bir kutu çiz.'};
+ img.onerror=()=>$('status').textContent='Fotoğraf açılamadı.';
+ img.src=photoURL;
+};
+function draw(){
+ const el=$('selection');if(!selection){el.style.display='none';return}
+ const {x,y,w,h}=selection;el.style.display='block';
+ el.style.left=x*100+'%';el.style.top=y*100+'%';el.style.width=w*100+'%';el.style.height=h*100+'%';
 }
-async function scanPage(split){
- if(!image){$('status').textContent='Önce fotoğraf seç.';return}
- $('scan').disabled=true;$('scanFull').disabled=true;
+function point(e){
+ const rect=$('preview').getBoundingClientRect();
+ return {x:Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),y:Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height))};
+}
+const preview=$('preview');
+preview.addEventListener('pointerdown',e=>{
+ if(!image)return;
+ e.preventDefault();preview.setPointerCapture(e.pointerId);
+ drag=point(e);selection={x:drag.x,y:drag.y,w:0,h:0};draw();
+});
+preview.addEventListener('pointermove',e=>{
+ if(!drag)return;e.preventDefault();const p=point(e);
+ selection={x:Math.min(drag.x,p.x),y:Math.min(drag.y,p.y),w:Math.abs(drag.x-p.x),h:Math.abs(drag.y-p.y)};draw();
+});
+preview.addEventListener('pointerup',e=>{
+ if(!drag)return;e.preventDefault();drag=null;
+ if(selection.w<.025||selection.h<.012){selection=null;draw();$('status').textContent='Alan çok küçük. Alıntıyı çevreleyen bir kutu çiz.'}
+ else $('status').textContent='Alan seçildi. “Seçtiğim alanı oku” düğmesine bas.';
+});
+preview.addEventListener('pointercancel',()=>{drag=null});
+$('clear').onclick=()=>{selection=null;draw();$('status').textContent='Seçim temizlendi. Yeni kutu çiz.'};
+$('scan').onclick=async()=>{
+ if(!image||!selection){$('status').textContent='Önce fotoğraf üzerinde alıntı alanını seç.';return}
+ const btn=$('scan');btn.disabled=true;
  try{
-  const top=+$('topCrop').value/100,bottom=+$('bottomCrop').value/100;
-  if(bottom<=top+.1)throw Error('Metin aralığını genişlet.');
-  $('status').textContent='Türkçe OCR modeli yükleniyor…';
+  $('status').textContent='Seçilen alan hazırlanıyor…';
+  const {x,y,w,h}=selection;
+  const sx=Math.floor(x*image.naturalWidth),sy=Math.floor(y*image.naturalHeight);
+  const sw=Math.max(1,Math.ceil(w*image.naturalWidth)),sh=Math.max(1,Math.ceil(h*image.naturalHeight));
+  const factor=Math.min(3,Math.max(1,1600/sw),2600/sh);
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.round(sw*factor);canvas.height=Math.round(sh*factor);
+  const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(image,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
+  $('status').textContent='Seçilen küçük alan okunuyor…';
   const ocr=await loadOCR();
-  let texts=[],count=0,confidence=[];
-  const parts=split?3:1;
-  for(let j=0;j<parts;j++){
-   const span=(bottom-top)/parts,overlap=split?span*.14:0;
-   const from=Math.max(top,top+j*span-overlap),to=Math.min(bottom,top+(j+1)*span+overlap);
-   const c=makeCanvas(from,to);
-   $('status').textContent='Okunuyor: bölüm '+(j+1)+' / '+parts;
-   const [res]=await ocr.predict(c,{textDetLimitSideLen:1600,textDetLimitType:'max'});
-   const lines=orderLines(res.items||[]);
-   for(const item of lines){
-    const midY=item.poly.reduce((sum,p)=>sum+p[1],0)/item.poly.length;
-    const globalY=from+(midY/c.height)*(to-from);
-    const lo=top+j*span,hi=top+(j+1)*span;
-    if(globalY<lo-(j===0?.0001:0)||globalY>=hi+(j===parts-1?.0001:0))continue;
-    texts.push(item.text.trim());count++;
-    if(typeof item.score==='number')confidence.push(item.score);
-   }
-  }
-  const result=texts.join('\n').replace(/-\s*\n\s*/g,'').trim();
-  if(!result)throw Error('Metin algılanamadı.');
-  $('pageText').textContent=result;
-  const avg=confidence.length?Math.round(confidence.reduce((a,b)=>a+b,0)/confidence.length*100):null;
-  $('status').textContent=(split?'Bölgesel':'Tek parça')+' tarama: '+count+' satır algılandı'+(avg===null?'':', ortalama OCR güven puanı %'+avg)+'. Güven puanı doğruluk garantisi değildir; metni kontrol et.';
- }catch(err){$('status').textContent='Tarama hatası: '+err.message}
- finally{$('scan').disabled=false;$('scanFull').disabled=false}
-}
-$('scan').onclick=()=>scanPage(true);
-$('scanFull').onclick=()=>scanPage(false);
-$('transfer').onpointerdown=e=>e.preventDefault();
-$('transfer').onclick=()=>{const sel=window.getSelection();if(!sel||sel.isCollapsed||!$('pageText').contains(sel.anchorNode)||!$('pageText').contains(sel.focusNode)){$('selectStatus').textContent='Önce yukarıdaki metinde alıntı bölümünü seç.';return}const value=sel.toString().trim();if(!value){$('selectStatus').textContent='Boş seçim.';return}$('quote').value=value;$('selectStatus').textContent='Seçtiğin bölüm alıntı kutusuna aktarıldı.'};
-$('all').onclick=()=>{$('quote').value=$('pageText').innerText.trim();$('selectStatus').textContent='Tüm sayfa aktarıldı.'};
-$('save').onclick=()=>{const quote=$('quote').value.trim(),book=$('book').value.trim();if(!quote||!book){$('saveStatus').textContent='Kitap adı ve alıntı gerekli.';return}records.unshift({quote,book,page:$('page').value});$('records').replaceChildren(...records.map(r=>{const article=document.createElement('article');const title=document.createElement('strong');title.textContent=r.book+(r.page?' · s. '+r.page:'');const p=document.createElement('p');p.textContent=r.quote;article.append(title,p);return article}));$('saveStatus').textContent='Deneme kaydı oluşturuldu; ana uygulamaya yazılmadı.'};
-</script></body></html>
+  const [result]=await ocr.predict(canvas,{textDetLimitSideLen:1600,textDetLimitType:'max'});
+  const lines=(result.items||[]).filter(i=>i.text?.trim()).sort((a,b)=>{
+   const ya=Math.min(...(a.poly||[[0,0]]).map(p=>p[1])),yb=Math.min(...(b.poly||[[0,0]]).map(p=>p[1]));
+   return Math.abs(ya-yb)<12?Math.min(...(a.poly||[[0,0]]).map(p=>p[0]))-Math.min(...(b.poly||[[0,0]]).map(p=>p[0])):ya-yb;
+  });
+  const text=lines.map(i=>i.text.trim()).join('\n').replace(/-\s*\n\s*/g,'').trim();
+  if(!text)throw Error('Bu alanda metin bulunamadı. Kutuyu biraz genişletip tekrar dene.');
+  $('quote').value=text;
+  $('status').textContent=lines.length+' satır okundu. Aşağıdaki metni kontrol edip düzelt.';
+ }catch(err){$('status').textContent='Okuma hatası: '+err.message}
+ finally{btn.disabled=false}
+};
+$('save').onclick=()=>{
+ const quote=$('quote').value.trim(),book=$('book').value.trim();
+ if(!quote||!book){$('saveStatus').textContent='Kitap adı ve alıntı gerekli.';return}
+ records.unshift({quote,book,page:$('page').value});
+ $('records').replaceChildren(...records.map(r=>{
+ const article=document.createElement('article'),title=document.createElement('strong'),p=document.createElement('p');
+ title.textContent=r.book+(r.page?' · s. '+r.page:'');p.textContent=r.quote;article.append(title,p);return article;
+ }));
+ $('saveStatus').textContent='Deneme kaydı oluşturuldu. Ana Kitaplığım değiştirilmedi.';
+};</script></body></html>
