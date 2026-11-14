@@ -378,6 +378,7 @@ main{padding-bottom:calc(130px + env(safe-area-inset-bottom))!important}
   </section>
 
   <section id="scanView" class="hidden">
+    <div style="margin:10px 0 16px"><button type="button" id="openOcrStoryGuide" style="background:#e8dfd0;color:#192641;border:0;border-radius:999px;padding:11px 17px;font:600 14px system-ui">ⓘ Nasıl Kullanılır?</button></div>
     <div class="eyebrow">Fotoğraftan alıntı</div><h1 class="title">Fotoğraf Tara</h1>
     <div class="card">
       <h2 class="serif">Kitabınızın bir sayfasını seçin</h2>
@@ -3290,4 +3291,7 @@ if(libraryRecoveryIssue){
  };
 }
 </script>
+
+<div id="ocrStoryGuideOverlay" role="dialog" aria-modal="true" aria-label="Nasıl Kullanılır?" style="display:none;position:fixed;inset:0;z-index:2147483000;background:#111827;align-items:center;justify-content:center"><div style="width:100%;height:100%;max-width:480px;position:relative;background:#f7f1e5"><button type="button" id="closeOcrStoryGuide" aria-label="Rehberi kapat" style="position:absolute;right:12px;top:46px;z-index:5;background:#fff;border:1px solid #ddd;border-radius:999px;width:34px;height:34px;font-size:20px;color:#192641">×</button><iframe id="ocrStoryGuideFrame" title="Kitaplığım Nasıl Kullanılır?" loading="lazy" style="border:0;width:100%;height:100%" allow="autoplay" referrerpolicy="no-referrer"></iframe></div></div>
+<script>(function(){const open=document.getElementById('openOcrStoryGuide'),overlay=document.getElementById('ocrStoryGuideOverlay'),frame=document.getElementById('ocrStoryGuideFrame'),close=document.getElementById('closeOcrStoryGuide');if(!open||!overlay||!frame||!close)return;open.addEventListener('click',function(){frame.src='https://kitapligim-ocr-hikaye-rehber-bilkay-60-2616.vercel.app/';overlay.style.display='flex';document.body.style.overflow='hidden'});function hide(){overlay.style.display='none';frame.removeAttribute('src');document.body.style.overflow=''}close.addEventListener('click',hide);overlay.addEventListener('click',function(e){if(e.target===overlay)hide()});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&overlay.style.display!=='none')hide()})})();</script>
 </body></html>
